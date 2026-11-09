@@ -1,0 +1,1840 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f172a">
+  <title>Grammar Quest | English Quiz</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .glass { background: rgba(30, 41, 59, .82); backdrop-filter: blur(16px); }
+    .option-button { transition: background-color .18s ease, border-color .18s ease, transform .18s ease; }
+    .option-button:not(:disabled):hover { transform: translateY(-1px); }
+    .option-button:focus-visible, button:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 3px; }
+    .progress-fill { transition: width .35s ease; }
+    @keyframes winner-pop {
+      0% { opacity: 0; transform: scale(.72) translateY(8px); }
+      65% { opacity: 1; transform: scale(1.06) translateY(-2px); }
+      100% { transform: scale(1) translateY(0); }
+    }
+    @keyframes winner-sparkle {
+      0%, 100% { opacity: .35; transform: scale(.7) rotate(0deg); }
+      50% { opacity: 1; transform: scale(1.15) rotate(18deg); }
+    }
+    @keyframes answer-shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-5px); }
+      40%, 80% { transform: translateX(5px); }
+    }
+    .winner-feedback { animation: winner-pop .48s cubic-bezier(.2,.8,.2,1) both; }
+    .winner-sparkle { animation: winner-sparkle .9s ease-in-out infinite; }
+    .try-again-feedback { animation: answer-shake .38s ease-in-out both; }
+    .answer-effect {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      pointer-events: none;
+      opacity: 0;
+    }
+    .answer-effect.is-visible { animation: effect-screen .2s ease-out both; }
+    .answer-effect.is-correct { background: radial-gradient(ellipse at center, rgba(16, 185, 129, .2), rgba(15, 23, 42, .08) 60%, transparent 85%); }
+    .answer-effect.is-wrong { background: radial-gradient(ellipse at center, rgba(244, 63, 94, .18), rgba(15, 23, 42, .08) 62%, transparent 86%); }
+    .effect-message { text-align: center; animation: effect-message .65s cubic-bezier(.2,.8,.2,1) both; }
+    .effect-emoji { display: block; font-size: clamp(5rem, 19vw, 11rem); line-height: 1; filter: drop-shadow(0 10px 35px rgba(0,0,0,.4)); }
+    .effect-title { display: block; margin-top: 1rem; font-size: clamp(2.5rem, 10vw, 5rem); font-weight: 1000; letter-spacing: -.06em; text-shadow: 0 8px 35px rgba(0,0,0,.4); }
+    .is-correct .effect-title { color: #a7f3d0; }
+    .is-wrong .effect-title { color: #fecdd3; }
+    .effect-particle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: var(--size, 10px);
+      height: calc(var(--size, 10px) * 1.6);
+      border-radius: 3px;
+      background: var(--particle-color);
+      opacity: 0;
+      animation: particle-burst 1.1s cubic-bezier(.12,.62,.22,1) both;
+      animation-delay: var(--delay, 0ms);
+    }
+    @keyframes effect-screen {
+      0% { opacity: 0; backdrop-filter: blur(0); }
+      18% { opacity: 1; backdrop-filter: blur(3px); }
+      100% { opacity: 1; backdrop-filter: blur(0); }
+    }
+    @keyframes effect-message {
+      0% { opacity: 0; transform: scale(.55) translateY(20px); }
+      65% { opacity: 1; transform: scale(1.08) translateY(-4px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes particle-burst {
+      0% { opacity: 0; transform: translate(-50%, -50%) rotate(0) scale(.3); }
+      12% { opacity: 1; }
+      100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--spin)) scale(.8); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 selection:bg-indigo-500/40">
+  <div class="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
+    <div class="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-indigo-600/10 blur-3xl"></div>
+    <div class="absolute -right-32 top-1/3 h-96 w-96 rounded-full bg-violet-600/10 blur-3xl"></div>
+  </div>
+  <div id="answerEffect" class="answer-effect" aria-hidden="true"></div>
+
+  <div class="relative mx-auto flex min-h-screen max-w-5xl flex-col px-4 py-6 sm:px-6 lg:px-8">
+  <header class="mb-8 flex items-center justify-between gap-4">
+      <a href="#" class="flex items-center gap-3" aria-label="Grammar Quest home">
+        <span class="grid h-11 w-11 place-items-center rounded-2xl bg-indigo-500 text-xl font-black shadow-lg shadow-indigo-950/60">G</span>
+        <span>
+          <span class="block text-sm font-bold tracking-wide text-white">GRAMMAR QUEST</span>
+          <span class="block text-xs text-slate-400">Learn a rule. Master the language.</span>
+        </span>
+      </a>
+      <div class="flex items-center gap-2">
+        <button id="soundToggle" type="button" class="rounded-xl border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-slate-500 hover:text-white" aria-pressed="true" title="Turn answer sounds off">🔊 Sound on</button>
+        <button id="restartButton" type="button" class="rounded-xl border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-slate-500 hover:text-white">Restart</button>
+      </div>
+    </header>
+
+    <main class="flex-1">
+      <section class="mb-6 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:p-5" aria-label="Learning progress">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <span id="stageBadge" class="rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-bold tracking-wide text-indigo-300">READY</span>
+            <span id="progressLabel" class="text-sm font-semibold text-slate-200">Rule 1 of 29</span>
+          </div>
+          <span id="scoreLabel" class="text-sm text-slate-400">0 correct answers</span>
+        </div>
+        <div class="h-2 overflow-hidden rounded-full bg-slate-800" role="progressbar" aria-label="Overall course progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="progressFill" class="progress-fill h-full w-0 rounded-full bg-gradient-to-r from-indigo-500 to-violet-400"></div>
+        </div>
+        <div id="checkpointTrail" class="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+          <span data-checkpoint="1" class="rounded-lg border border-slate-800 px-2.5 py-1">Checkpoint 1 · after Rule 10</span>
+          <span data-checkpoint="2" class="rounded-lg border border-slate-800 px-2.5 py-1">Checkpoint 2 · after Rule 20</span>
+          <span data-checkpoint="final" class="rounded-lg border border-slate-800 px-2.5 py-1">Grand Test · after Rule 29</span>
+        </div>
+      </section>
+
+      <div id="appContent" aria-live="polite"></div>
+    </main>
+
+    <footer class="mt-10 border-t border-slate-800/80 py-5 text-center text-xs text-slate-500">
+      Grammar Quest · Your progress is temporary and resets when you restart or refresh.
+    </footer>
+  </div>
+
+  <script>
+    // Each practice item is [sentence, answer, distractor, explanation].
+    const ruleContent = [
+      {
+        title: "চিরন্তন সত্য ও অভ্যাসগত কর্ম",
+        description: "চিরন্তন সত্য, সাধারণ সত্য, নিত্য অভ্যাস, রীতিনীতি ও ঐতিহাসিক ঘটনা বর্ণনায় Present Indefinite ব্যবহার হয়। Third-person singular subject হলে verb-এর সঙ্গে s/es যোগ হয়।",
+        items: [
+          ["The earth (move) ___ round the sun.", "moves", "move", "এটি চিরন্তন সত্য; The earth একবচন হওয়ায় verb-এর সঙ্গে s যোগ হয়েছে।"],
+          ["Water (boil) ___ at 100°C.", "boils", "boil", "বিজ্ঞানের সাধারণ সত্যে Present Indefinite হয়; Water-কে একবচন ধরে boils হয়েছে।"],
+          ["The sun (rise) ___ in the east.", "rises", "rise", "প্রাকৃতিক সত্য প্রকাশে Present Indefinite হয়; The sun-এর সঙ্গে rises বসে।"],
+          ["Honey (be) ___ sweet.", "is", "are", "গুণ বা সাধারণ সত্য বোঝাতে Present Indefinite-এর be verb is হয়।"],
+          ["Ice (float) ___ on water.", "floats", "is floating", "স্বাভাবিক সত্য বোঝাতে Present Indefinite ব্যবহার হয়েছে।"]
+        ]
+      },
+      {
+        title: "নিয়মিত বা অভ্যাসগত কাজ",
+        description: "Always, daily, regularly, normally, generally, often, sometimes, usually এবং every day-এর মতো শব্দ অভ্যাস বা নিয়মিত কাজ বোঝায়। এ ক্ষেত্রে Present Indefinite ব্যবহার হয়।",
+        items: [
+          ["He always (speak) ___ the truth.", "speaks", "is speaking", "Always নিত্য অভ্যাস বোঝায়; He-এর সঙ্গে speaks হয়।"],
+          ["We (clean) ___ our classroom regularly.", "clean", "are cleaning", "Regularly নিয়মিত কাজ বোঝায়, তাই Present Indefinite clean হয়েছে।"],
+          ["She (walk) ___ in the morning daily.", "walks", "is walking", "Daily অভ্যাস বোঝায়; She-এর সঙ্গে walks বসে।"],
+          ["They usually (play) ___ football in the afternoon.", "play", "plays", "Usually অভ্যাসগত কাজ; They plural subject হওয়ায় play হয়।"],
+          ["My mother (read) ___ the Holy Quran every day.", "reads", "is reading", "Every day নিয়মিত অভ্যাস বোঝায়; My mother একবচন বলে reads হয়েছে।"]
+        ]
+      },
+      {
+        title: "ভবিষ্যতে নির্ধারিত কাজ বা ঘটনা",
+        description: "ভবিষ্যতের কোনো সময়সূচি, রুটিন বা পূর্বনির্ধারিত কর্মসূচির কথা বললেও Present Indefinite ব্যবহার করা যায়।",
+        items: [
+          ["Raju (go) ___ to Singapore next month.", "goes", "will goes", "পূর্বনির্ধারিত ভবিষ্যৎ পরিকল্পনা বোঝানো হয়েছে; Present Indefinite goes ব্যবহৃত।"],
+          ["Our school (close) ___ next Sunday.", "closes", "will closes", "সূচি অনুযায়ী নির্ধারিত ভবিষ্যৎ ঘটনা বোঝাতে Present Indefinite closes হয়।"],
+          ["The Prime Minister (arrive) ___ tomorrow.", "arrives", "will arrives", "পূর্বনির্ধারিত সফর বা সময়সূচিতে Present Indefinite ব্যবহার হয়েছে।"],
+          ["My uncle (leave) ___ for Dhaka next week.", "leaves", "will leaves", "নির্ধারিত ভবিষ্যৎ ভ্রমণ বোঝাতে leaves হয়েছে।"],
+          ["The examination (start) ___ next Sunday.", "starts", "will starts", "ঘোষিত সময়সূচি অনুযায়ী ভবিষ্যৎ ঘটনা; The examination একবচন বলে starts।"]
+        ]
+      },
+      {
+        title: "অতীত নির্দেশক শব্দ",
+        description: "Yesterday, last week/month/year, ago, long ago, formerly এবং the previous day-এর মতো নির্দিষ্ট অতীত-সময়ের শব্দ থাকলে সাধারণত Past Indefinite ব্যবহার হয়।",
+        items: [
+          ["I (go) ___ to school yesterday.", "went", "go", "Yesterday নির্দিষ্ট অতীত সময়; go-এর past form went।"],
+          ["They (come) ___ here a few days ago.", "came", "have come", "Ago অতীত সময় নির্দেশ করে; come-এর past form came।"],
+          ["He (visit) ___ his grandparents last week.", "visited", "visits", "Last week-এর কারণে Past Indefinite visited হয়েছে।"],
+          ["Columbus (discover) ___ America long ago.", "discovered", "has discovered", "Long ago অতীত সময় নির্দেশ করে; discovered ব্যবহার হয়।"],
+          ["She (buy) ___ a new dress the previous day.", "bought", "buys", "The previous day অতীত নির্দেশ করে; buy-এর past form bought।"]
+        ]
+      },
+      {
+        title: "It is time / It is high time",
+        description: "It is time বা It is high time-এর পরে subject এলে পরের verb-এর Past Indefinite form ব্যবহার হয়; অর্থটি বর্তমানের করণীয় বা বিলম্ব বোঝায়।",
+        items: [
+          ["It is high time we (take) ___ action against corruption.", "took", "take", "It is high time + subject construction-এ Past Indefinite took হয়।"],
+          ["It is time you (change) ___ your bad habits.", "changed", "change", "It is time-এর পর subject থাকায় verb-এর past form changed বসে।"],
+          ["It is high time he (start) ___ a business.", "started", "starts", "High time construction-এ started ব্যবহৃত হয়।"],
+          ["I fancy it (rain) ___ last night.", "rained", "rains", "Last night অতীত নির্দেশ করে; তাই Past Indefinite rained হয়েছে।"],
+          ["It is time we (leave) ___ the place.", "left", "leave", "It is time + subject-এর পর Past Indefinite left হয়।"]
+        ]
+      },
+      {
+        title: "অসম্ভব ইচ্ছা বা কল্পনা",
+        description: "বর্তমানের অবাস্তব ইচ্ছা বা কল্পনায় If I were, I wish-এর পরে were, have-এর past form had, এবং সাধারণ verb-এর Past Indefinite ব্যবহৃত হয়।",
+        items: [
+          ["If I (be) ___ a bird!", "were", "am", "অবাস্তব কল্পনায় be-এর ক্ষেত্রে subject যাই হোক were ব্যবহৃত হয়।"],
+          ["I wish I (be) ___ a king.", "were", "was", "I wish-এর পর অবাস্তব ইচ্ছায় were প্রচলিত subjunctive form।"],
+          ["Would that I (be) ___ a billionaire!", "were", "am", "অবাস্তব আকাঙ্ক্ষায় be-এর past subjunctive were বসে।"],
+          ["If she (have) ___ the wings of a bird!", "had", "has", "Have-এর Past Indefinite form had দিয়ে অবাস্তব ইচ্ছা প্রকাশ হয়েছে।"],
+          ["I wish I (fly) ___ in the sky.", "flew", "will fly", "বর্তমানের অসম্ভব ইচ্ছায় fly-এর Past Indefinite form flew হয়।"]
+        ]
+      },
+      {
+        title: "অতীতের দুটি ঘটনা: as soon as / when",
+        description: "অতীতে পরপর বা প্রায় একই সময়ে ঘটা দুটি সম্পূর্ণ ঘটনা as soon as, when বা as দিয়ে যুক্ত হলে উভয় clause-এ Past Indefinite ব্যবহার করা হয়।",
+        items: [
+          ["As soon as we (reach) ___ the station, the train left.", "reached", "had reached", "এখানে অতীতের পরপর ঘটা দুটি ঘটনা Past Indefinite-এ আছে।"],
+          ["When the bell rang, the students (leave) ___ the room.", "left", "were leaving", "Bell ring ও room leave—দুটি সম্পূর্ণ অতীত ঘটনা; তাই left।"],
+          ["As the dog lay close to him, it (find) ___ comfort there.", "found", "was finding", "As-যুক্ত অতীত ঘটনার ধারাবাহিকতায় Past Indefinite found হয়েছে।"],
+          ["He came home when I (call) ___ him.", "called", "was calling", "When-clause-এ অতীতে ঘটা সম্পূর্ণ কাজ বোঝাতে Past Indefinite called হয়েছে।"],
+          ["As soon as he saw me, he (run) ___ away.", "ran", "was running", "As soon as-যুক্ত পরপর অতীত ঘটনার জন্য ran বসেছে।"]
+        ]
+      },
+      {
+        title: "অতীতের চলমান কাজের মধ্যে অন্য ঘটনা",
+        description: "অতীতে একটি কাজ চলার সময় অন্য একটি ঘটনা ঘটলে চলমান কাজটি Past Continuous এবং ঘটনাটি Past Indefinite হয়।",
+        items: [
+          ["While I was walking on the street, I (see) ___ a beautiful bird.", "saw", "was seeing", "হাঁটা চলমান ছিল; পাখি দেখা আলাদা ঘটনা, তাই Past Indefinite saw।"],
+          ["When he was sleeping, the phone (ring) ___.", "rang", "was ringing", "ঘুম চলমান ছিল; ফোন বেজে ওঠা ঘটনার Past form rang।"],
+          ["While she (cook) ___, the milk spilled.", "was cooking", "cooked", "রান্না চলমান ছিল; তাই Past Continuous was cooking।"],
+          ["It started to rain while we (play) ___ football.", "were playing", "played", "খেলার কাজটি বৃষ্টি শুরুর সময় চলছিল; তাই were playing।"],
+          ["The thief ran away while the guard (sleep) ___.", "was sleeping", "slept", "প্রহরীর ঘুম চলমান ছিল; singular subject guard-এর সঙ্গে was sleeping।"]
+        ]
+      },
+      {
+        title: "ভবিষ্যৎ সম্ভাবনা",
+        description: "ভবিষ্যতে ঘটবে বলে অনুমান, প্রত্যাশা বা সম্ভাবনা বোঝাতে will/shall + verb-এর মূল রূপ ব্যবহার হয়।",
+        items: [
+          ["Orpa (be) ___ a singer one day.", "will be", "is", "One day ভবিষ্যৎ বোঝায়; will + be ব্যবহৃত হয়েছে।"],
+          ["He (pass) ___ the exam easily.", "will pass", "passes", "ভবিষ্যৎ সম্ভাবনায় will-এর পরে মূল verb pass বসে।"],
+          ["Bangladesh (prosper) ___ in the coming decades.", "will prosper", "prospered", "Coming decades ভবিষ্যৎ সময়; will prosper সঠিক গঠন।"],
+          ["They (win) ___ the match.", "will win", "wins", "ভবিষ্যৎ ফলের সম্ভাবনায় will + win হয়।"],
+          ["The sun (shine) ___ brightly tomorrow.", "will shine", "shines", "Tomorrow ভবিষ্যৎ সময় নির্দেশ করে; will shine হয়।"]
+        ]
+      },
+      {
+        title: "Tomorrow / next week-এর মতো ভবিষ্যৎ-সময়",
+        description: "Tomorrow, next week, next month বা coming year-এর মতো ভবিষ্যৎ সময়ের উল্লেখে সাধারণত Future Indefinite: will/shall + মূল verb।",
+        items: [
+          ["She (leave) ___ for London tomorrow.", "will leave", "leaves will", "Tomorrow ভবিষ্যৎ বোঝায়; will leave সঠিক গঠন।"],
+          ["We (visit) ___ the Safari Park next month.", "shall visit", "visited", "Next month ভবিষ্যৎ সময়; shall visit ব্যবহার করা হয়েছে।"],
+          ["I (buy) ___ a new laptop next week.", "shall buy", "bought", "Next week-এর জন্য shall + মূল verb buy বসেছে।"],
+          ["They (come) ___ back in the coming year.", "will come", "came", "Coming year ভবিষ্যৎ নির্দেশ করে; will come হয়।"],
+          ["He (start) ___ a new job next Monday.", "will start", "starts will", "ভবিষ্যতের নির্দিষ্ট সময় থাকায় will start সঠিক।"]
+        ]
+      },
+      {
+        title: "বর্তমানে চলমান কাজ",
+        description: "Now, at present, at this moment, look, listen এবং day by day-এর মতো প্রসঙ্গে চলমান কাজ বোঝাতে Present Continuous (am/is/are + V-ing) ব্যবহার হয়।",
+        items: [
+          ["Runa (read) ___ the book at this moment.", "is reading", "reads", "At this moment কাজটি চলছে; Runa একবচন বলে is reading।"],
+          ["At present, he (do) ___ his homework.", "is doing", "does", "At present চলমান কাজ বোঝায়; is + doing হয়।"],
+          ["Look! The boy (fly) ___ a kite.", "is flying", "flies", "Look বর্তমানের দৃশ্য নির্দেশ করে; is flying ব্যবহৃত।"],
+          ["Listen! Someone (knock) ___ at the door.", "is knocking", "knocks", "Listen দিয়ে এখন ঘটছে এমন কাজ বোঝানো হয়েছে।"],
+          ["The population (increase) ___ day by day.", "is increasing", "increases", "Day by day ক্রমাগত পরিবর্তন বোঝায়; is increasing হয়েছে।"]
+        ]
+      },
+      {
+        title: "সাময়িক কাজ বা অবস্থা",
+        description: "বর্তমান সময়ে সাময়িকভাবে চলা কাজ, প্রকল্প বা অবস্থার বর্ণনায় Present Continuous ব্যবহার করা হয়।",
+        items: [
+          ["Rupa (read) ___ a book.", "is reading", "reads", "সাময়িকভাবে এখন পড়ছে বোঝাতে is reading হয়েছে।"],
+          ["He (stay) ___ with his brother in Khulna.", "is staying", "stays", "সাময়িক অবস্থান বোঝাতে Present Continuous ব্যবহৃত।"],
+          ["I (write) ___ a novel these days.", "am writing", "write", "These days চলমান সাময়িক কাজ; I-এর সঙ্গে am writing হয়।"],
+          ["She (learn) ___ programming this month.", "is learning", "learns", "এই মাসে সাময়িকভাবে শেখার কাজ চলছে; is learning।"],
+          ["They (work) ___ on a temporary project now.", "are working", "work", "Temporary project সাময়িক কাজ; They-এর সঙ্গে are working হয়।"]
+        ]
+      },
+      {
+        title: "অতীতকালের চলমান কাজ",
+        description: "অতীতের কোনো নির্দিষ্ট সময়ে কাজ চলছিল বোঝাতে Past Continuous (was/were + V-ing) ব্যবহার হয়।",
+        items: [
+          ["At that time, he (sleep) ___ in my room.", "was sleeping", "slept", "অতীতের নির্দিষ্ট সময়ে কাজ চলছিল; he-এর সঙ্গে was sleeping।"],
+          ["Then we (gossip) ___ under a tree.", "were gossiping", "gossiped", "অতীতের তখনকার চলমান কাজ; we-এর সঙ্গে were gossiping।"],
+          ["It (rain) ___ heavily all through the night.", "was raining", "rained", "অতীতের পুরো সময়ে চলমান বৃষ্টি বোঝাতে was raining।"],
+          ["The children (draw) ___ at 5 PM yesterday.", "were drawing", "drew", "Yesterday-র নির্দিষ্ট সময়ে কাজ চলছিল; plural subject-এর সঙ্গে were drawing।"],
+          ["I (read) ___ a story then.", "was reading", "read", "Then অতীতের চলমান মুহূর্ত বোঝায়; was reading হয়েছে।"]
+        ]
+      },
+      {
+        title: "সম্পন্ন কাজ: Present Perfect",
+        description: "Just, already, yet, recently এবং ever-এর মতো শব্দের সঙ্গে বর্তমানের ফল বা সদ্য সম্পন্ন কাজ বোঝাতে have/has + past participle (V3) ব্যবহার হয়।",
+        items: [
+          ["You have recently (see) ___ her.", "seen", "saw", "Have-এর পরে see-এর V3 seen বসে; recently Present Perfect-ի հետ ব্যবহৃত।"],
+          ["I have just (have) ___ my breakfast.", "had", "have", "Have + had (V3) দিয়ে সদ্য সম্পন্ন কাজ প্রকাশিত।"],
+          ["He (finish) ___ his work already.", "has finished", "finished", "Already-সহ Present Perfect: has + finished।"],
+          ["I (not see) ___ him yet.", "have not seen", "did not saw", "Yet-যুক্ত নেতিবাচক বাক্যে have not + V3 হয়।"],
+          ["We (reach) ___ home just now.", "have just reached", "just reach", "Have + reached বর্তমান-সম্পর্কিত সদ্য সম্পন্ন কাজ বোঝায়।"]
+        ]
+      },
+      {
+        title: "Future/time clause-এ কাজ সম্পন্ন হওয়া",
+        description: "When, after, once, as soon as বা until-যুক্ত future/time clause-এ Present Simple খুব প্রচলিত; কাজ সম্পন্ন হওয়ার ওপর বিশেষভাবে জোর দিলে Present Perfect-ও ব্যবহার করা যায়।",
+        items: [
+          ["She will inform me when she (reach) ___ home.", "has reached", "will reach", "কাজটি সম্পন্ন হওয়ার ওপর জোর দিতে time clause-এ has reached ব্যবহার করা হয়েছে; will reach নয়।"],
+          ["Do it as I (tell) ___ you.", "have told", "will tell", "আগে বলা নির্দেশের সম্পন্নতা বোঝাতে have told এসেছে।"],
+          ["Inform me after you (finish) ___ the task.", "have finished", "will finish", "After-clause-এ কাজ সম্পন্ন হওয়ার পরের সময় বোঝাতে have finished হয়েছে।"],
+          ["You can go out once you (complete) ___ your homework.", "have completed", "will complete", "Once-clause-এ সম্পন্নতার ওপর জোর দিয়ে have completed ব্যবহার হয়েছে।"],
+          ["Wait here until the rain (stop) ___.", "has stopped", "will stop", "Until-clause-এ বৃষ্টি থামার সম্পন্নতা বোঝাতে has stopped এসেছে।"]
+        ]
+      },
+      {
+        title: "Interrogative sentence-এ সহায়ক verb",
+        description: "প্রশ্নে tense ও subject অনুযায়ী do/does/did, be verb বা will subject-এর আগে বসে। Do/does/did-এর পরে মূল verb-এর base form হয়।",
+        items: [
+          ["Why ___ he (look) so happy?", "does", "do", "Present Simple-এ he-এর জন্য does বসে; মূল verb look অপরিবর্তিত থাকে।"],
+          ["Where ___ you (go) yesterday?", "did", "does", "Yesterday অতীত নির্দেশ করে; প্রশ্নে did + subject + base verb হয়।"],
+          ["What ___ you (do) now?", "are", "do", "Now-তে চলমান কাজ; you-এর সঙ্গে are doing হয়।"],
+          ["How ___ she (solve) the problem?", "did", "does", "অতীত প্রশ্নে did-এর পরে solve-এর base form থাকে।"],
+          ["When ___ they (come) here?", "will", "do", "ভবিষ্যৎ প্রশ্নে will subject-এর আগে বসে: will they come।"]
+        ]
+      },
+      {
+        title: "Infinitive: to + verb",
+        description: "Want, decide, learn, start, begin, try, prefer এবং love-এর মতো verb-এর পরে আরেকটি verb এলে অনেক ক্ষেত্রে to + base verb (infinitive) ব্যবহার হয়। কিছু verb-এর পরে gerund-ও সম্ভব।",
+        items: [
+          ["We started (talk) ___.", "to talk", "talked", "Start-এর পরে infinitive to talk ব্যবহার করা যায়।"],
+          ["They learned (speak) English fluently.", "to speak", "speaking to", "Learn-এর পরে to + base verb: to speak।"],
+          ["He wants (buy) a new car.", "to buy", "buys", "Want-এর পরে infinitive to buy বসে।"],
+          ["She likes (read) story books.", "to read", "reads", "Like-এর পরে to read সঠিক; এখানে infinitive বেছে নেওয়া হয়েছে।"],
+          ["I decided (go) there.", "to go", "went", "Decide-এর পরে to + base verb হয়।"]
+        ]
+      },
+      {
+        title: "Since: বর্তমান clause-এর পরে অতীত ঘটনা",
+        description: "Since-এর আগের clause Present Simple/Perfect হলে since-clause সাধারণত অতীতে শুরু হওয়া ঘটনার Past Indefinite বর্ণনা করে। সময়কাল বোঝালে আগের clause-এ Present Perfect ব্যবহার করা যায়।",
+        items: [
+          ["I have known him since we (meet) at school.", "met", "have met", "Since-clause-এ পরিচয়ের শুরুতে অতীতে ঘটা ঘটনা বোঝাতে met হয়।"],
+          ["Ten years have passed since he (leave) the country.", "left", "has left", "Since-এর পরের clause-এ অতীতের নির্দিষ্ট ঘটনা left বসে।"],
+          ["Many days have gone since I (see) her.", "saw", "have seen", "Since-clause-এ অতীতের দেখা বোঝাতে saw ব্যবহৃত।"],
+          ["It is long since I (visit) Cox's Bazar.", "visited", "have visited", "Since-এর পরে Past Indefinite visited হয়।"],
+          ["Much time has passed since they (get) married.", "got", "have got", "বিয়ের ঘটনাটি অতীতে ঘটেছে; তাই since-clause-এ got।"]
+        ]
+      },
+      {
+        title: "Since: অতীতের reference point",
+        description: "Since-clause-এর আগের অংশ Past Indefinite হলে পরের clause-এ Past Indefinite বা প্রসঙ্গ অনুযায়ী Past Perfect হতে পারে। আগে ঘটে যাওয়া কাজের ওপর জোর দিলে Past Perfect উপযুক্ত।",
+        items: [
+          ["It was many years since I (see) you.", "had seen", "will see", "অতীতের reference point-এর আগেই দেখা হয়েছিল; Past Perfect had seen স্পষ্ট করে।"],
+          ["A long time had passed since we (meet).", "had met", "meet", "দীর্ঘ সময় পার হওয়ার আগের সাক্ষাৎ বোঝাতে Past Perfect had met হয়।"],
+          ["It was a long time since I (go) there.", "had gone", "will go", "অতীতের সেই সময়ের আগের কাজ বোঝাতে had gone ব্যবহার করা হয়েছে।"],
+          ["Many years passed since my father (die).", "died", "dies", "Since-clause-এ অতীতের নির্দিষ্ট ঘটনা Past Indefinite died হয়েছে।"],
+          ["It was long since they (finish) the project.", "had finished", "will finish", "অতীতের সেই সময়ের আগে শেষ হওয়া কাজ বোঝাতে had finished হয়।"]
+        ]
+      },
+      {
+        title: "Before ও after: past events",
+        description: "অতীতের দুটি কাজের মধ্যে আগে ঘটে যাওয়া কাজ Past Perfect এবং পরে ঘটে যাওয়া কাজ Past Indefinite হতে পারে। Before/after অনুযায়ী কোন কাজটি আগে হয়েছে তা নির্ধারণ করুন।",
+        items: [
+          ["We had reached the station before the train (start) ___.", "started", "had start", "Train ছাড়ার ঘটনাটি পরে ঘটেছে; Past Indefinite started।"],
+          ["The patient had died before the doctor (come) ___.", "came", "had came", "ডাক্তার পরে এসেছেন; তাই Past Indefinite came ব্যবহৃত হয়েছে।"],
+          ["We reached the station after the train (start) ___.", "had started", "started", "Train আগে ছাড়ে; আগে ঘটে যাওয়া কাজ Past Perfect had started।"],
+          ["The doctor came after the patient (die) ___.", "had died", "dies", "রোগীর মৃত্যু আগে ঘটেছে; তাই Past Perfect had died।"],
+          ["I had finished my homework before my mother (come) ___.", "came", "had came", "Mother পরে এসেছেন; Past Indefinite came ব্যবহৃত।"]
+        ]
+      },
+      {
+        title: "As if / as though: present main clause",
+        description: "As if/as though-এর আগের clause Present Indefinite হলে অবাস্তব বা কল্পিত তুলনায় পরের clause-এ Past Indefinite হয়। Be verb-এর ক্ষেত্রে were ব্যবহার করা যায়।",
+        items: [
+          ["He talks as if he (be) ___ a millionaire.", "were", "is", "Present main clause-এর পরে অবাস্তব তুলনায় were ব্যবহৃত।"],
+          ["She speaks as though she (know) ___ everything.", "knew", "knows", "কল্পিত জ্ঞান বোঝাতে Past Indefinite knew হয়েছে।"],
+          ["He acts as if he (be) ___ the boss.", "were", "is", "As if-এর পরের কাল্পনিক অবস্থায় were ব্যবহার হয়।"],
+          ["It looks as if it (rain) ___.", "rained", "rains", "এই নিয়মে অবাস্তব তুলনা বোঝাতে Past Indefinite rained বসে।"],
+          ["He behaves as though he (own) ___ the company.", "owned", "owns", "Present main clause-এর পর কাল্পনিক তুলনায় owned হয়েছে।"]
+        ]
+      },
+      {
+        title: "As if / as though: past main clause",
+        description: "As if/as though-এর আগের clause Past Indefinite হলে, অতীতের আগের কোনো অবাস্তব ঘটনা বোঝাতে পরের clause-এ Past Perfect ব্যবহার করা হয়।",
+        items: [
+          ["He talked as though he (not know) ___ it.", "had not known", "does not know", "Past main clause-এর পর আগের অবাস্তব অবস্থা বোঝাতে Past Perfect হয়েছে।"],
+          ["She behaved as if she (see) ___ a ghost.", "had seen", "saw", "অতীতের আচরণের আগের কল্পিত ঘটনা: had seen।"],
+          ["He spoke as though he (be) ___ a leader.", "had been", "is", "Past main clause-এর পর Past Perfect had been বসেছে।"],
+          ["They acted as if they (win) ___ the battle.", "had won", "win", "আগের কল্পিত বিজয় বোঝাতে had + V3 হয়।"],
+          ["She looked as though she (cry) ___ for hours.", "had cried", "cries", "দেখতে লাগার আগের কাজ বোঝাতে Past Perfect had cried।"]
+        ]
+      },
+      {
+        title: "To / until / till",
+        description: "Future বা imperative main clause-এর সঙ্গে time clause-এ সাধারণত will নয়, Present Indefinite ব্যবহার হয়। Until/till-এর পরে কাজটি কখন ঘটবে তা নির্দেশ করে।",
+        items: [
+          ["Wait till I (come) ___ back.", "come", "will come", "Imperative-এর পরের till-clause-এ Present Simple come হয়।"],
+          ["Stay here until the rain (stop) ___.", "stops", "will stop", "Until time clause-এ Present Indefinite stops হয়।"],
+          ["Run fast so that you (catch) ___ the train.", "can catch", "will caught", "উদ্দেশ্য বা সক্ষমতা বোঝাতে can + মূল verb catch ব্যবহৃত।"],
+          ["Do not leave until I (call) ___ you.", "call", "will call", "Imperative-এর পরে until-clause-এ Present Indefinite call বসে।"],
+          ["Keep reading until you (understand) ___ the topic.", "understand", "will understand", "Until-clause-এ ভবিষ্যৎ অর্থ হলেও Present Indefinite হয়।"]
+        ]
+      },
+      {
+        title: "Would that: আকাঙ্ক্ষা",
+        description: "Would that দিয়ে ইচ্ছা বা আকাঙ্ক্ষা প্রকাশে subject-এর পরে could + মূল verb ব্যবহার করা যায়।",
+        items: [
+          ["Would that I (go) ___ to school.", "could go", "will went", "Would that-এর আকাঙ্ক্ষায় could-এর পরে মূল verb go বসেছে।"],
+          ["Would that I (fly) ___ in the sky.", "could fly", "flew could", "Could + base verb fly দিয়ে ইচ্ছা প্রকাশ হয়েছে।"],
+          ["Would that I (help) ___ the poor.", "could help", "helped can", "Would that construction-এ could help সঠিক।"],
+          ["Would that I (be) ___ a writer.", "could be", "am", "Be verb-এর মূল রূপ be, could-এর পরে ব্যবহৃত হয়েছে।"],
+          ["Would that we (win) ___ the match.", "could win", "won will", "আকাঙ্ক্ষা বোঝাতে could + win বসেছে।"]
+        ]
+      },
+      {
+        title: "And-যুক্ত compound subject",
+        description: "দুটি noun-এর আগে article একবার থাকলে তারা একই ব্যক্তিকে বোঝাতে পারে এবং singular verb নেয়। উভয় noun-এর আগে article থাকলে সাধারণত দুজনকে বোঝায়, তাই plural verb হয়।",
+        items: [
+          ["The Headmaster and Chairman (be) ___ coming. (একই ব্যক্তি)", "is", "are", "একটি article একই ব্যক্তির দুটি পদ নির্দেশ করে; singular is হয়।"],
+          ["The Headmaster and the Chairman (be) ___ coming.", "are", "is", "দুটি article আলাদা ব্যক্তিকে বোঝায়; plural are হয়।"],
+          ["The novelist and poet (have) ___ written a book. (একই ব্যক্তি)", "has", "have", "একই ব্যক্তির দুটি পরিচয়; singular subject হিসেবে has হয়েছে।"],
+          ["The producer and the director (be) ___ present.", "were", "was", "দুটি পৃথক ব্যক্তি বোঝানোয় plural verb were বসেছে।"],
+          ["Bread and butter (be) ___ my favorite breakfast.", "is", "are", "একটি মিলিত খাবার বা একক ধারণা হিসেবে singular is ব্যবহার হয়েছে।"]
+        ]
+      },
+      {
+        title: "Zero conditional: সার্বজনীন সত্য",
+        description: "প্রাকৃতিক নিয়ম বা সার্বজনীন সত্য বোঝাতে Zero Conditional-এর দুই clause-এই Present Indefinite হয়: If + Present, Present।",
+        items: [
+          ["If you heat water, it (boil) ___.", "boils", "will boil", "বৈজ্ঞানিক সত্যে Zero Conditional-এর ফলের clause-এ Present Indefinite boils হয়।"],
+          ["If you mix red and yellow, you (get) ___ orange.", "get", "will got", "সাধারণ সত্য হওয়ায় দুই clause-ই Present Indefinite।"],
+          ["If plants do not get water, they (die) ___.", "die", "will die", "প্রাকৃতিক নিয়মে Zero Conditional-এর ফল die হয়।"],
+          ["If ice melts, it (turn) ___ into water.", "turns", "will turn", "সার্বজনীন সত্যে Present Indefinite turns ব্যবহৃত।"],
+          ["If you touch fire, you (burn) ___.", "burn", "will burn", "সাধারণ সত্যের Zero Conditional-এ burn বসে।"]
+        ]
+      },
+      {
+        title: "First Conditional: বাস্তব ভবিষ্যৎ সম্ভাবনা",
+        description: "বাস্তবে ঘটতে পারে এমন ভবিষ্যৎ শর্তে If-clause-এ Present Indefinite এবং ফলের clause-এ will + মূল verb হয়।",
+        items: [
+          ["If you study hard, you (pass) ___.", "will pass", "would passed", "বাস্তব ভবিষ্যৎ সম্ভাবনায় First Conditional: will + pass।"],
+          ["If it rains tomorrow, we (stay) ___ home.", "will stay", "stayed", "If-clause Present, ফলের clause will + base verb।"],
+          ["If you come, I (go) ___ with you.", "will go", "would went", "সম্ভাব্য ভবিষ্যৎ ফল প্রকাশে will go হয়।"],
+          ["If she works hard, she (shine) ___ in life.", "will shine", "shines will", "First Conditional-এর ফলের clause-এ will + shine ব্যবহৃত।"],
+          ["If they invite me, I (attend) ___ the party.", "will attend", "would attended", "বাস্তব সম্ভাবনায় will attend সঠিক গঠন।"]
+        ]
+      },
+      {
+        title: "Second Conditional: কল্পিত বর্তমান",
+        description: "বর্তমানে অসম্ভব বা কাল্পনিক অবস্থা বোঝাতে If + Past Indefinite, would/could/might + V1 হয়। If-clause-এ be-এর ক্ষেত্রে were প্রচলিত।",
+        items: [
+          ["If he worked hard, he (succeed) ___.", "could succeed", "can succeeded", "Second Conditional-এর ফলের clause-এ could + V1 হয়।"],
+          ["If they invited me, I (attend) ___ the party.", "would attend", "will attended", "কাল্পনিক শর্তের ফল would + attend হয়।"],
+          ["If I had a lot of money, I (help) ___ the poor.", "would help", "will help", "বর্তমানের কল্পিত শর্তে would + মূল verb ব্যবহার হয়েছে।"],
+          ["If I were a bird, I (fly) ___ in the sky.", "would fly", "will flew", "Were-যুক্ত কল্পিত শর্তের ফলে would fly হয়।"],
+          ["If you ran fast, you (catch) ___ the train.", "could catch", "can caught", "কাল্পনিক সক্ষমতা বোঝাতে could + catch হয়েছে।"]
+        ]
+      },
+      {
+        title: "Third Conditional ও if-clause-এ were",
+        description: "অতীতে না ঘটা ঘটনার বিপরীত ফল বোঝাতে If + Past Perfect, would/could/might have + V3 হয়। তবে If I were you-এর মতো বর্তমান কল্পনায় Second Conditional (would + V1) ব্যবহার হয়।",
+        items: [
+          ["If I had seen him, I (help) ___ him.", "would have helped", "would help", "অতীতের অসম্পন্ন শর্তে Third Conditional: would have + V3।"],
+          ["If you had known the truth, you (tell) ___ me.", "would have told", "will tell", "Had known অতীতের শর্ত; ফল would have told।"],
+          ["If she had studied well, she (pass) ___.", "could have passed", "could pass", "অতীতের সম্ভাব্য ফল বোঝাতে could have + V3 হয়েছে।"],
+          ["If I were rich, I (build) ___ a hospital.", "could build", "could have built", "Were rich বর্তমানের কল্পিত শর্ত; ফল could + V1, Third Conditional নয়।"],
+          ["If they had started early, they (reach) ___ on time.", "would have reached", "will reach", "Past Perfect if-clause-এর Third Conditional ফল would have reached হয়۔"]
+        ]
+      }
+    ];
+
+    function makeQuestion(ruleId, item, questionIndex) {
+      const [question, answer, distractor, explanation] = item;
+      const { options, correctIndex } = createAnswerOptions(answer, distractor);
+      return {
+        question,
+        options,
+        correctIndex,
+        explanation,
+        ruleId
+      };
+    }
+
+    function createAnswerOptions(answer, distractor) {
+      const irregularForms = {
+        be: ["be", "am", "is", "are", "was", "were", "been", "being"],
+        begin: ["begin", "begins", "began", "begun", "beginning"],
+        break: ["break", "breaks", "broke", "broken", "breaking"],
+        bring: ["bring", "brings", "brought", "bringing"],
+        buy: ["buy", "buys", "bought", "buying"],
+        call: ["call", "calls", "called", "calling"],
+        catch: ["catch", "catches", "caught", "catching"],
+        come: ["come", "comes", "came", "coming"],
+        do: ["do", "does", "did", "done", "doing"],
+        draw: ["draw", "draws", "drew", "drawn", "drawing"],
+        drive: ["drive", "drives", "drove", "driven", "driving"],
+        eat: ["eat", "eats", "ate", "eaten", "eating"],
+        find: ["find", "finds", "found", "finding"],
+        fly: ["fly", "flies", "flew", "flown", "flying"],
+        freeze: ["freeze", "freezes", "froze", "frozen", "freezing"],
+        get: ["get", "gets", "got", "gotten", "getting"],
+        give: ["give", "gives", "gave", "given", "giving"],
+        go: ["go", "goes", "went", "gone", "going"],
+        grow: ["grow", "grows", "grew", "grown", "growing"],
+        have: ["have", "has", "had", "having"],
+        hear: ["hear", "hears", "heard", "hearing"],
+        help: ["help", "helps", "helped", "helping"],
+        know: ["know", "knows", "knew", "known", "knowing"],
+        leave: ["leave", "leaves", "left", "leaving"],
+        make: ["make", "makes", "made", "making"],
+        meet: ["meet", "meets", "met", "meeting"],
+        move: ["move", "moves", "moved", "moving"],
+        pass: ["pass", "passes", "passed", "passing"],
+        read: ["read", "reads", "reading"],
+        ring: ["ring", "rings", "rang", "rung", "ringing"],
+        rise: ["rise", "rises", "rose", "risen", "rising"],
+        run: ["run", "runs", "ran", "running"],
+        see: ["see", "sees", "saw", "seen", "seeing"],
+        send: ["send", "sends", "sent", "sending"],
+        shine: ["shine", "shines", "shone", "shining"],
+        sing: ["sing", "sings", "sang", "sung", "singing"],
+        sleep: ["sleep", "sleeps", "slept", "sleeping"],
+        speak: ["speak", "speaks", "spoke", "spoken", "speaking"],
+        swim: ["swim", "swims", "swam", "swum", "swimming"],
+        take: ["take", "takes", "took", "taken", "taking"],
+        teach: ["teach", "teaches", "taught", "teaching"],
+        tell: ["tell", "tells", "told", "telling"],
+        think: ["think", "thinks", "thought", "thinking"],
+        win: ["win", "wins", "won", "winning"],
+        write: ["write", "writes", "wrote", "written", "writing"]
+      };
+
+      function formsFor(word) {
+        const lower = word.toLowerCase();
+        const irregular = Object.values(irregularForms).find((forms) => forms.includes(lower));
+        if (irregular) return irregular.filter((form) => form !== lower);
+        if (lower.endsWith("ies")) return [lower.slice(0, -3) + "y", lower.slice(0, -3) + "ying", lower.slice(0, -3) + "ied"];
+        if (lower.endsWith("ing")) {
+          const stem = lower.slice(0, -3);
+          return [stem, `${stem}s`, `${stem}ed`];
+        }
+        if (lower.endsWith("eed")) {
+          const stem = lower.slice(0, -1);
+          return [`${lower}s`, `${stem}ed`, `${stem}ing`];
+        }
+        if (lower.endsWith("ied")) {
+          const stem = lower.slice(0, -3) + "y";
+          return [stem, `${stem}s`, `${stem}ing`];
+        }
+        if (lower.endsWith("ss")) return [`${lower}es`, `${lower}ed`, `${lower}ing`];
+        if (lower.endsWith("ed")) {
+          const stem = lower.slice(0, -2);
+          const base = stem.endsWith("g") || stem.endsWith("v") ? `${stem}e` : stem;
+          return [base, `${base}s`, `${base}ing`];
+        }
+        if (lower.endsWith("ches") || lower.endsWith("shes") || lower.endsWith("xes") || lower.endsWith("zes") || lower.endsWith("oes")) {
+          const stem = lower.slice(0, -2);
+          return [stem, `${stem}ed`, `${stem}ing`];
+        }
+        if (lower.endsWith("s")) {
+          const stem = lower.slice(0, -1);
+          return [stem, `${stem}ed`, `${stem}ing`];
+        }
+        const thirdPerson = /(?:s|x|z|ch|sh|o)$/.test(lower) ? `${lower}es` : `${lower}s`;
+        const past = lower.endsWith("e") ? `${lower}d` : `${lower}ed`;
+        const ing = lower.endsWith("e") ? `${lower.slice(0, -1)}ing` : `${lower}ing`;
+        return [thirdPerson, past, ing];
+      }
+
+      function phraseVariants(phrase) {
+        const parts = phrase.split(" ");
+        const lastWord = parts.pop();
+        const prefix = parts.join(" ");
+        const lowerPrefix = prefix.toLowerCase();
+        const verbForms = formsFor(lastWord);
+
+        if (/^(will|shall|would|could|can|might|may|should|must)$/.test(lowerPrefix)) {
+          const otherModal = lowerPrefix === "will" ? "would" : "will";
+          if (lastWord.toLowerCase() === "be") {
+            return [`${otherModal} be`, `${prefix} being`, `${prefix} is`, `${prefix} was`];
+          }
+          return [
+            ...verbForms.map((form) => `${prefix} ${form}`),
+            `${otherModal} ${lastWord}`,
+          ];
+        }
+
+        if (/^(am|is|are|was|were)$/.test(lowerPrefix) && lastWord.toLowerCase().endsWith("ing")) {
+          const beForms = ["am", "is", "are", "was", "were"];
+          return [
+            ...beForms.filter((form) => form !== lowerPrefix).map((form) => `${form} ${lastWord}`),
+            ...verbForms.map((form) => `${prefix} ${form}`)
+          ];
+        }
+
+        if (/^(has|have|had)$/.test(lowerPrefix)) {
+          const haveForms = ["has", "have", "had"];
+          return [
+            ...haveForms.filter((form) => form !== lowerPrefix).map((form) => `${form} ${lastWord}`),
+            `${prefix} ${verbForms[0] || lastWord}`,
+            `${prefix} ${verbForms[1] || lastWord}`
+          ];
+        }
+
+        if (lowerPrefix === "to") {
+          return [lastWord, ...verbForms.map((form) => `to ${form}`)];
+        }
+
+        return formsFor(lastWord).map((form) => prefix ? `${prefix} ${form}` : form);
+      }
+
+      const candidates = [
+        distractor,
+        ...phraseVariants(answer),
+        ...phraseVariants(distractor),
+        "will " + answer,
+        "did " + answer
+      ];
+      const wrongOptions = [];
+      for (const candidate of candidates) {
+        const option = candidate.trim();
+        if (option && option.toLowerCase() !== answer.toLowerCase() &&
+            !wrongOptions.some((existing) => existing.toLowerCase() === option.toLowerCase())) {
+          wrongOptions.push(option);
+        }
+        if (wrongOptions.length === 3) break;
+      }
+
+      while (wrongOptions.length < 3) {
+        wrongOptions.push(`not ${answer} (${wrongOptions.length + 1})`);
+      }
+
+      const options = [
+        { text: answer, correct: true },
+        ...wrongOptions.map((text) => ({ text, correct: false }))
+      ];
+      for (let index = options.length - 1; index > 0; index--) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [options[index], options[swapIndex]] = [options[swapIndex], options[index]];
+      }
+
+      return {
+        options: options.map((option) => option.text),
+        correctIndex: options.findIndex((option) => option.correct)
+      };
+    }
+
+    const ruleExamples = [
+      [["✓ The moon goes around the earth.", "চাঁদ পৃথিবীর চারদিকে ঘোরে।"], ["✓ Plants need sunlight to grow.", "গাছের বেড়ে ওঠার জন্য সূর্যের আলো প্রয়োজন।"]],
+      [["✓ Mina usually drinks tea after breakfast.", "মিনা সাধারণত নাশতার পর চা পান করে।"], ["✓ We visit our grandparents every Friday.", "আমরা প্রতি শুক্রবার দাদা-দাদি/নানা-নানিকে দেখতে যাই।"]],
+      [["✓ The museum opens at nine tomorrow.", "জাদুঘরটি আগামীকাল নয়টায় খোলে।"], ["✓ Our flight leaves at noon next Monday.", "আমাদের ফ্লাইট আগামী সোমবার দুপুরে ছাড়ে।"]],
+      [["✓ I watched a documentary last night.", "আমি গত রাতে একটি প্রামাণ্যচিত্র দেখেছিলাম।"], ["✓ They moved to Chattogram two years ago.", "তারা দুই বছর আগে চট্টগ্রামে চলে গিয়েছিল।"]],
+      [["✓ It is time the team began the meeting.", "দলের এখনই সভাটি শুরু করার সময় হয়েছে।"], ["✓ It is high time you apologized.", "তোমার অনেক আগেই ক্ষমা চাওয়া উচিত ছিল।"]],
+      [["✓ I wish I were taller.", "ইশ, আমি যদি আরেকটু লম্বা হতাম।"], ["✓ If he had more time, he would travel.", "তার আরও সময় থাকলে সে ভ্রমণ করত।"]],
+      [["✓ As soon as the guests arrived, dinner was served.", "অতিথিরা আসামাত্র রাতের খাবার পরিবেশন করা হলো।"], ["✓ When the match ended, the crowd cheered.", "খেলা শেষ হলে দর্শকেরা উল্লাস করল।"]],
+      [["✓ The wind was blowing when we left home.", "আমরা বাড়ি থেকে বের হওয়ার সময় বাতাস বইছিল।"], ["✓ She was studying while her brother was cooking.", "তার ভাই রান্না করার সময় সে পড়াশোনা করছিল।"]],
+      [["✓ I will call you later this evening.", "আমি আজ সন্ধ্যার পরে তোমাকে ফোন করব।"], ["✓ Perhaps they will visit us next summer.", "হয়তো তারা আগামী গ্রীষ্মে আমাদের সঙ্গে দেখা করতে আসবে।"]],
+      [["✓ The library will close early tomorrow.", "লাইব্রেরিটি আগামীকাল তাড়াতাড়ি বন্ধ হবে।"], ["✓ We shall meet again next week.", "আমরা আগামী সপ্তাহে আবার দেখা করব।"]],
+      [["✓ The children are drawing pictures now.", "শিশুরা এখন ছবি আঁকছে।"], ["✓ Listen! The birds are singing.", "শোনো! পাখিরা গান গাইছে।"]],
+      [["✓ I am taking an evening course this term.", "এই সেমিস্টারে আমি সন্ধ্যার একটি কোর্স করছি।"], ["✓ She is staying with a friend for a few days.", "সে কয়েক দিনের জন্য এক বন্ধুর বাসায় থাকছে।"]],
+      [["✓ At midnight, everyone was sleeping.", "মধ্যরাতে সবাই ঘুমাচ্ছিল।"], ["✓ They were driving home at that time.", "তারা তখন গাড়ি চালিয়ে বাড়ি ফিরছিল।"]],
+      [["✓ She has just sent the email.", "সে এইমাত্র ইমেইলটি পাঠিয়েছে।"], ["✓ We have already eaten lunch.", "আমরা ইতিমধ্যেই দুপুরের খাবার খেয়েছি।"]],
+      [["✓ Please wait until I have checked the list.", "আমি তালিকাটি পরীক্ষা করা পর্যন্ত দয়া করে অপেক্ষা করুন।"], ["✓ He will start once the guests have arrived.", "অতিথিরা পৌঁছালে সে শুরু করবে।"]],
+      [["✓ Where does your sister work?", "তোমার বোন কোথায় কাজ করে?"], ["✓ Why did they cancel the trip?", "তারা কেন ভ্রমণটি বাতিল করেছিল?"]],
+      [["✓ I hope to see you soon.", "আশা করি শিগগিরই তোমার সঙ্গে দেখা হবে।"], ["✓ He decided to study medicine.", "সে চিকিৎসাবিদ্যা পড়ার সিদ্ধান্ত নিয়েছিল।"]],
+      [["✓ It has been five years since we moved here.", "আমরা এখানে আসার পর পাঁচ বছর কেটে গেছে।"], ["✓ She has changed a lot since she joined the team.", "দলে যোগ দেওয়ার পর থেকে তার অনেক পরিবর্তন হয়েছে।"]],
+      [["✓ It was years since they had last spoken.", "তাদের শেষবার কথা বলার পর বহু বছর কেটে গিয়েছিল।"], ["✓ Much time had passed since the town was founded.", "শহরটি প্রতিষ্ঠিত হওয়ার পর অনেক সময় পেরিয়ে গিয়েছিল।"]],
+      [["✓ The show had started before we entered.", "আমরা ঢোকার আগেই অনুষ্ঠানটি শুরু হয়েছিল।"], ["✓ After she had locked the door, she called a taxi.", "দরজায় তালা দেওয়ার পর সে একটি ট্যাক্সি ডাকল।"]],
+      [["✓ She smiles as if she knew a secret.", "সে এমনভাবে হাসে যেন কোনো গোপন কথা জানে।"], ["✓ He treats the puppy as though it were his own.", "সে কুকুরছানাটির সঙ্গে এমন আচরণ করে যেন সেটি তার নিজের।"]],
+      [["✓ He spoke as if he had met the author.", "সে এমনভাবে কথা বলেছিল যেন লেখকের সঙ্গে তার দেখা হয়েছিল।"], ["✓ They celebrated as though they had won the prize.", "তারা এমনভাবে উদ্‌যাপন করেছিল যেন পুরস্কারটি জিতেছে।"]],
+      [["✓ Keep the lights on until I return.", "আমি ফিরে না আসা পর্যন্ত বাতিগুলো জ্বালিয়ে রেখো।"], ["✓ We will wait here till the bus arrives.", "বাসটি আসা পর্যন্ত আমরা এখানে অপেক্ষা করব।"]],
+      [["✓ Would that I could speak every language!", "ইশ, আমি যদি সব ভাষায় কথা বলতে পারতাম!"], ["✓ Would that she could join us today!", "ইশ, সে যদি আজ আমাদের সঙ্গে যোগ দিতে পারত!"]],
+      [["✓ The singer and actor is arriving. (one person)", "গায়ক ও অভিনেতা আসছেন। (একই ব্যক্তি)"], ["✓ The singer and the actor are arriving. (two people)", "গায়ক এবং অভিনেতা আসছেন। (দুজন আলাদা ব্যক্তি)"]],
+      [["✓ If you drop glass, it breaks.", "কাচ ফেলে দিলে তা ভেঙে যায়।"], ["✓ If the temperature falls below zero, water freezes.", "তাপমাত্রা শূন্যের নিচে নামলে পানি জমে যায়।"]],
+      [["✓ If the weather improves, we will go hiking.", "আবহাওয়া ভালো হলে আমরা হাইকিংয়ে যাব।"], ["✓ She will pass the course if she studies regularly.", "নিয়মিত পড়াশোনা করলে সে কোর্সে পাস করবে।"]],
+      [["✓ If I lived by the sea, I would swim every day.", "আমি সমুদ্রের ধারে থাকলে প্রতিদিন সাঁতার কাটতাম।"], ["✓ If he were here, he could help us.", "সে এখানে থাকলে আমাদের সাহায্য করতে পারত।"]],
+      [["✓ If they had booked earlier, they would have found cheaper seats.", "তারা আগে বুক করলে আরও সস্তা আসন পেত।"], ["✓ If I were in your place, I would ask for advice.", "আমি তোমার জায়গায় থাকলে পরামর্শ চাইতাম।"]]
+    ];
+
+    const rulesDatabase = ruleContent.map((rule, ruleIndex) => ({
+      id: ruleIndex + 1,
+      title: rule.title,
+      description: rule.description,
+      examples: ruleExamples[ruleIndex],
+      questions: rule.items.map((item, questionIndex) => makeQuestion(ruleIndex + 1, item, questionIndex))
+    }));
+
+    function makeTestQuestion(ruleId, question, answer, distractor, explanation, index) {
+      return makeQuestion(ruleId, [question, answer, distractor, explanation], index);
+    }
+
+    const checkpointQuestions = {
+      checkpoint1: [
+        makeTestQuestion(1, "The sun (set) ___ in the west.", "sets", "set", "চিরন্তন সত্য; The sun একবচন বলে sets হয়।", 0),
+        makeTestQuestion(2, "She always (come) ___ to class on time.", "comes", "is coming", "Always অভ্যাস বোঝায়; She-এর সঙ্গে comes হয়।", 1),
+        makeTestQuestion(3, "Our final examination (begin) ___ next Sunday.", "begins", "will begins", "পূর্বনির্ধারিত সময়সূচিতে Present Indefinite begins হয়।", 0),
+        makeTestQuestion(4, "Columbus (discover) ___ America many years ago.", "discovered", "discovers", "Many years ago অতীত নির্দেশ করে।", 1),
+        makeTestQuestion(5, "It is high time we (change) ___ our study habit.", "changed", "change", "It is high time-এর পরে Past Indefinite হয়।", 0),
+        makeTestQuestion(6, "I wish I (be) ___ a rich person.", "were", "am", "অবাস্তব ইচ্ছায় be-এর subjunctive form were হয়।", 1),
+        makeTestQuestion(7, "As soon as the bell (ring) ___, the students entered.", "rang", "rings", "অতীতের পরপর ঘটা ঘটনার জন্য Past Indefinite rang।", 0),
+        makeTestQuestion(8, "While I (read) ___ a book, the light went out.", "was reading", "read", "আলো নিভে যাওয়ার সময় পড়া চলছিল; Past Continuous।", 1),
+        makeTestQuestion(9, "Bangladesh (become) ___ a developed country in the coming decades.", "will become", "became", "Coming decades ভবিষ্যৎ; will + base verb হয়।", 0),
+        makeTestQuestion(10, "They (leave) ___ for Dhaka tomorrow.", "will leave", "left", "Tomorrow ভবিষ্যৎ নির্দেশ করে; will leave সঠিক।", 1)
+      ],
+      checkpoint2: [
+        makeTestQuestion(11, "Look! The little boy (fly) ___ a kite.", "is flying", "flies", "Look বর্তমানের চলমান দৃশ্য বোঝায়।", 0),
+        makeTestQuestion(12, "At present, he (work) ___ on a software project.", "is working", "worked", "At present চলমান কাজ বোঝায়; is working হয়।", 1),
+        makeTestQuestion(13, "At that time, they (play) ___ cricket in the rain.", "were playing", "played", "অতীতের নির্দিষ্ট সময়ে কাজ চলছিল; were playing।", 0),
+        makeTestQuestion(14, "I (finish) ___ my homework just now.", "have finished", "finish", "এখানে সম্পন্নতার বর্তমান ফল বোঝাতে have finished ব্যবহৃত।", 1),
+        makeTestQuestion(15, "The train will start after we (reach) ___ the station.", "have reached", "will reach", "After time clause-এ কাজ সম্পন্ন হওয়া বোঝাতে have reached ব্যবহার হয়েছে।", 0),
+        makeTestQuestion(16, "Why ___ you (look) so sad yesterday?", "did", "do", "Yesterday-সহ প্রশ্নে did + subject + base verb হয়।", 1),
+        makeTestQuestion(17, "He wants (buy) ___ a new smartphone.", "to buy", "buying to", "Want-এর পরে infinitive to buy বসে।", 0),
+        makeTestQuestion(18, "Many years have passed since I (meet) ___ him.", "met", "have met", "Since-clause-এ অতীতে ঘটে যাওয়া সাক্ষাৎ Past Indefinite met দিয়ে বোঝানো হয়।", 1),
+        makeTestQuestion(19, "It was long since I (visit) ___ my village home.", "had visited", "will visit", "অতীত reference point-এর আগে ঘটে যাওয়া কাজ; Past Perfect।", 0),
+        makeTestQuestion(20, "The patient had died before the doctor (come) ___.", "came", "had came", "Before-clause-এ পরে ঘটা কাজ Past Indefinite came হয়।", 1)
+      ],
+      final: [
+        makeTestQuestion(21, "He speaks as though he (know) ___ everything.", "knew", "knows", "Present main clause-এর পরে কল্পিত তুলনায় Past Indefinite হয়।", 0),
+        makeTestQuestion(22, "She behaved as if she (see) ___ a ghost.", "had seen", "sees", "Past main clause-এর পরে আগের কল্পিত ঘটনা Past Perfect হয়।", 1),
+        makeTestQuestion(23, "Keep quiet until the teacher (come) ___.", "comes", "will come", "Until time clause-এ future অর্থ থাকলেও Present Indefinite হয়।", 0),
+        makeTestQuestion(24, "Would that I (be) ___ a pilot!", "could be", "am", "Would that-এর পরে could + মূল verb দিয়ে আকাঙ্ক্ষা বোঝায়।", 1),
+        makeTestQuestion(25, "The Headmaster and the Secretary (be) ___ present. (দুজন আলাদা ব্যক্তি)", "are", "is", "দুটি article আলাদা ব্যক্তিকে বোঝায়; plural are হয়।", 0),
+        makeTestQuestion(26, "If you freeze water, it (turn) ___ into ice.", "turns", "will turn", "সার্বজনীন সত্যে Zero Conditional-এর দুই clause-ই Present হয়।", 1),
+        makeTestQuestion(27, "If you work hard, you (shine) ___ in life.", "will shine", "would shine", "বাস্তব ভবিষ্যৎ সম্ভাবনায় First Conditional-এর ফল will + V1।", 0),
+        makeTestQuestion(28, "If I had wings, I (fly) ___ across the world.", "would fly", "will fly", "Had wings বর্তমানের কল্পনা; Second Conditional-এ would + V1 হয়।", 1),
+        makeTestQuestion(29, "If you had informed me, I (help) ___ you.", "would have helped", "would help", "Past Perfect if-clause-এর ফল Third Conditional-এ would have + V3 হয়।", 0),
+        makeTestQuestion(28, "If I were you, I (accept) ___ the offer.", "would accept", "will accept", "If I were you বর্তমানের কাল্পনিক শর্ত; would + V1 হয়।", 1)
+      ]
+    };
+
+    const changingSentenceSets = [
+      {
+        title: "Charles Babbage",
+        items: [
+          ["Charles Babbage was a British mathematician.", "Negative", "Charles Babbage was a British mathematician, not a non-British one."],
+          ["He was born on 26 December 1791, probably in London.", "Compound", "He was born on 26 December 1791, and he was probably born in London."],
+          ["He was often unwell when he was a child.", "Simple", "He was often unwell during his childhood."],
+          ["In 1810, he went to Cambridge University to satiate his interest in Mathematics.", "Complex", "In 1810, he went to Cambridge University so that he could satisfy his interest in mathematics."],
+          ["After his graduation the Royal Institution hired him to lecture on calculations.", "Compound", "He graduated, and the Royal Institution hired him to lecture on calculations."],
+          ["In the 1820s he worked on a machine which could perform mathematical calculations.", "Simple", "In the 1820s he worked on a machine capable of performing mathematical calculations."],
+          ["His Difference Engine 2 was bigger and better than his Difference Engine 1.", "Negative", "His Difference Engine 2 was not smaller or worse than his Difference Engine 1."],
+          ["His invention, the Analytical Engine, was a very complex machine.", "Exclamatory", "What a very complex machine the Analytical Engine was!"],
+          ["We still remember him as a pioneer of computers for his invention.", "Negative", "We cannot but remember him as a pioneer of computers for his invention."],
+          ["He died in London at his home on 18 October 1871.", "Interrogative", "Did he not die in London at his home on 18 October 1871?"]
+        ]
+      },
+      {
+        title: "Success and industry",
+        items: [
+          ["Success will not come to one's life automatically.", "Interrogative", "Will success not come to one's life automatically?"],
+          ["Do you know it?", "Assertive", "Everybody knows that industry is important for success."],
+          ["Industry is very important for success.", "Exclamatory", "How important industry is for success!"],
+          ["So, it is called the mother of good luck.", "Interrogative", "So, is it not called the mother of good luck?"],
+          ["An industrious boy will shine in life.", "Complex", "A boy who is industrious will shine in life."],
+          ["A life with an aim is an actual life.", "Negative", "A life with an aim is not an unreal life."],
+          ["A man who is lazy always curses his lot for his misfortune.", "Simple", "A lazy man always curses his lot for his misfortune."],
+          ["What a fool he is!", "Affirmative", "He is a very foolish person."],
+          ["None can receive any reward unless he works hard.", "Simple", "No one can receive any reward without working hard."],
+          ["It is evident that industry is a great virtue.", "Interrogative", "Is it not evident that industry is a great virtue?"]
+        ]
+      },
+      {
+        title: "Simplicity and social media",
+        items: [
+          ["It dazzles our eyes and soothes our heart.", "Negative", "It does not fail to dazzle our eyes and soothe our heart."],
+          ["They will never be against you.", "Affirmative", "They will always refrain from opposing you."],
+          ["Everybody appreciates him because he is simple.", "Simple", "Everybody appreciates him for his simplicity."],
+          ["Simplicity can make you great.", "Complex", "If you are simple, you can become great."],
+          ["Hearing my success, all my friends congratulated me.", "Compound", "My friends heard of my success, and they all congratulated me."],
+          ["She remains conscious of retaining its reputation.", "Imperative", "Let her remain conscious of retaining its reputation."],
+          ["The teachers are quite optimistic about their students.", "Exclamatory", "How optimistic the teachers are about their students!"],
+          ["Smartphones are the most popular thing with students.", "Interrogative", "Are smartphones not the most popular thing with students?"],
+          ["Would that I could open a Facebook account!", "Assertive", "I wish that I could open a Facebook account."],
+          ["Unfortunately, Facebook gives students more pleasure than studies.", "Negative", "Unfortunately, Facebook does not give students equal or less pleasure than studies do."]
+        ]
+      },
+      {
+        title: "The importance of having an aim",
+        items: [
+          ["An aim is a goal to which one aspires.", "Compound", "An aim is a goal, and one aspires to it."],
+          ["It inspires one to long for a certain position.", "Complex", "It inspires one so that one may long for a certain position."],
+          ["Everyone should have an aim in life.", "Interrogative", "Shouldn't everyone have an aim in life?"],
+          ["An aim is not an optional choice for us.", "Affirmative", "An aim is a necessary choice for us."],
+          ["Having a fixed aim, everyone can reach the goal.", "Negative", "No one with a fixed aim is unable to reach the goal."],
+          ["An aim is the most important target in our life.", "Complex", "An aim is a target that is the most important in our life."],
+          ["There are few aims for men and women.", "Negative", "There are not many aims for men and women."],
+          ["An overambitious man tries to fulfil his aim by hook or by crook.", "Interrogative", "Doesn't an overambitious man try to fulfil his aim by hook or by crook?"],
+          ["Aim must be selected thoughtfully.", "Negative", "Aim cannot be selected carelessly."],
+          ["People who work hard can meet their aim.", "Simple", "Hardworking people can meet their aim."]
+        ]
+      },
+      {
+        title: "Cricket",
+        items: [
+          ["Cricket is a very exciting game.", "Exclamatory", "What an exciting game cricket is!"],
+          ["People of all ages enjoy this game.", "Interrogative", "Don't people of all ages enjoy this game?"],
+          ["Cricket is a very popular game in our country.", "Exclamatory", "What a popular game cricket is in our country!"],
+          ["Though cricket is a costly game, people of all classes enjoy playing it.", "Simple", "In spite of being a costly game, cricket is enjoyed by people of all classes."],
+          ["Bangladesh is a Test-playing country developing its standard day by day.", "Compound", "Bangladesh is a Test-playing country, and it is developing its standard day by day."],
+          ["It is played all over the world.", "Interrogative", "Isn't it played all over the world?"],
+          ["The game is played between two teams, each consisting of eleven players.", "Complex", "The game is played between two teams, each of which consists of eleven players."],
+          ["If the players perform well, they can win the World Cup.", "Simple", "By performing well, the players can win the World Cup."],
+          ["It is full of thrill and excitement for the spectators.", "Interrogative", "Isn't it full of thrill and excitement for the spectators?"],
+          ["We must try our best to improve its present position.", "Negative", "We cannot but try our best to improve its present position."]
+        ]
+      },
+      {
+        title: "The freedom fighters",
+        items: [
+          ["We are proud of our freedom fighters.", "Interrogative", "Aren't we proud of our freedom fighters?"],
+          ["Their contribution will never be forgotten.", "Affirmative", "Their contribution will always be remembered."],
+          ["Their sacrifice is greater than any other thing.", "Negative", "No other thing is as great as their sacrifice."],
+          ["But today many of them lead a very miserable life.", "Complex", "It is a fact that today many of them lead a very miserable life."],
+          ["If we take proper steps, their condition may improve.", "Simple", "By taking proper steps, we may improve their condition."],
+          ["Their allowance has been increased.", "Interrogative", "Hasn't their allowance been increased?"],
+          ["We should respect them.", "Negative", "We should not disrespect them."],
+          ["We should never forget their sacrifice.", "Affirmative", "We should always remember their sacrifice."],
+          ["We should regard their sacrifice.", "Negative", "We cannot but regard their sacrifice."],
+          ["The freedom fighters are the real heroes.", "Complex", "It is the freedom fighters who are the real heroes."]
+        ]
+      },
+      {
+        title: "Industry and success",
+        items: [
+          ["Who does not want to succeed in life?", "Assertive", "Everybody wants to succeed in life."],
+          ["It is not an easy task.", "Affirmative", "It is a difficult task."],
+          ["Being industrious, everyone can prosper in life.", "Negative", "No industrious person is unable to prosper in life."],
+          ["The idle always lag behind.", "Complex", "Those who are idle always lag behind."],
+          ["We must work hard so that we can earn money.", "Simple", "We must work hard to earn money."],
+          ["By working hard, we can improve our lot.", "Compound", "We can work hard, and thereby we can improve our lot."],
+          ["The light of prosperity can be seen by a hardworking person.", "Complex", "A person who works hard can see the light of prosperity."],
+          ["Women should work as much as men.", "Negative", "Women should not work less than men."],
+          ["We should remember that industry is the key to success.", "Interrogative", "Shouldn't we remember that industry is the key to success?"],
+          ["An idle man leads a very miserable life.", "Exclamatory", "What a miserable life an idle man leads!"]
+        ]
+      },
+      {
+        title: "Mymensingh",
+        items: [
+          ["Mymensingh, an old town, has been declared a city corporation.", "Complex", "Mymensingh, which is an old town, has been declared a city corporation."],
+          ["It is one of the largest cities in Bangladesh.", "Interrogative", "Isn't it one of the largest cities in Bangladesh?"],
+          ["It is famous for several reasons.", "Complex", "There are several reasons why it is famous."],
+          ["It is famous for both educational institutions and agriculture.", "Negative", "It is not famous for educational institutions alone; it is also famous for agriculture."],
+          ["Besides being active, the people of this district are peace-loving.", "Compound", "The people of this district are active, and they are peace-loving."],
+          ["The people who live in Mymensingh City enjoy many modern facilities.", "Simple", "The people living in Mymensingh City enjoy many modern facilities."],
+          ["Who does not know that Mymensingh was once the biggest district in Bengal?", "Assertive", "Everybody knows that Mymensingh was once the biggest district in Bengal."],
+          ["The people are very proud of that.", "Exclamatory", "How proud the people are of that!"],
+          ["We want some steps to be taken for the development of this city.", "Compound", "We want some steps to be taken, and these steps should develop this city."],
+          ["We should work together to beautify the city.", "Imperative", "Let us work together to beautify the city."]
+        ]
+      },
+      {
+        title: "Unemployment",
+        items: [
+          ["Unemployment is a state when a man has no work to earn money.", "Simple", "Unemployment is a state of having no work to earn money."],
+          ["It is a social evil which hampers the progress of social life.", "Compound", "It is a social evil, and it hampers the progress of social life."],
+          ["The prosperity of a society depends upon the reasonable income of its able-bodied persons.", "Complex", "A society prospers when its able-bodied persons have a reasonable income."],
+          ["Can anything increase the per capita income like them?", "Assertive", "Nothing can increase the per capita income like them."],
+          ["Unemployment is a social evil which must be cured at any cost.", "Negative", "Unemployment is a social evil that cannot be left uncured at any cost."],
+          ["It is a great problem.", "Exclamatory", "What a great problem it is!"],
+          ["The government alone cannot solve this problem.", "Interrogative", "Can the government alone solve this problem?"],
+          ["The young people should find some ways to be employed.", "Complex", "The young people should find some ways so that they can be employed."],
+          ["Only perseverance of the young people can solve this problem.", "Negative", "None but the perseverance of the young people can solve this problem."],
+          ["We cannot but solve this problem.", "Affirmative", "We must solve this problem."]
+        ]
+      },
+      {
+        title: "Health is wealth",
+        items: [
+          ["Health is wealth.", "Complex", "Health is what wealth is."],
+          ["A healthy poor man is happier than a sick moneyed man.", "Negative", "A sick moneyed man is not as happy as a healthy poor man."],
+          ["Though a healthy man is an asset to his family, an unhealthy man is a liability.", "Compound", "A healthy man is an asset to his family, but an unhealthy man is a liability."],
+          ["He can succeed in life.", "Interrogative", "Can't he succeed in life?"],
+          ["Everybody must be conscious of his health.", "Affirmative", "Nobody can do without being conscious of their health."],
+          ["Everybody must take care of his health all the time.", "Negative", "Nobody can neglect their health at any time."],
+          ["Health can be improved by regular physical exercise and a balanced diet.", "Assertive", "Regular physical exercise and a balanced diet can improve health."],
+          ["The people who are poor cannot afford to take a balanced diet.", "Simple", "Poor people cannot afford to take a balanced diet."],
+          ["They are very concerned with the quantity of food.", "Exclamatory", "How concerned they are with the quantity of food!"],
+          ["Everybody should know that malnutrition causes weakness.", "Interrogative", "Shouldn't everybody know that malnutrition causes weakness?"]
+        ]
+      },
+      {
+        title: "Our freedom fighters",
+        items: [
+          ["We are grateful to the freedom fighters.", "Negative", "We cannot but be grateful to the freedom fighters."],
+          ["Their contribution is greater than any other thing.", "Interrogative", "Isn't their contribution greater than any other thing?"],
+          ["The freedom fighters who died in the Liberation War are called martyrs.", "Compound", "The freedom fighters died in the Liberation War, and they are called martyrs."],
+          ["The National Memorial has been built with a view to paying tribute to their memories.", "Complex", "The National Memorial has been built so that we can pay tribute to their memories."],
+          ["A freedom fighter is the greatest son of the soil.", "Complex", "A freedom fighter is a son of the soil who is greater than any other son of the soil."],
+          ["We got our independence for their sacrifice.", "Interrogative", "Didn't we get our independence for their sacrifice?"],
+          ["They fought bravely and snatched the red sun of independence.", "Simple", "Fighting bravely, they snatched the red sun of independence."],
+          ["Though their weapons were ordinary, they had much courage in their minds.", "Compound", "Their weapons were ordinary, but they had much courage in their minds."],
+          ["Their contribution will never be forgotten.", "Affirmative", "Their contribution will always be remembered."],
+          ["The government has taken some steps to improve their condition.", "Complex", "The government has taken some steps so that their condition can improve."]
+        ]
+      },
+      {
+        title: "Taimur",
+        items: [
+          ["Taimur was one of the greatest conquerors of the world.", "Interrogative", "Wasn't Taimur one of the greatest conquerors of the world?"],
+          ["The province of a powerful prince was once attacked by young Taimur.", "Compound", "A powerful prince had a province, and young Taimur once attacked it."],
+          ["Entering the kingdom of the prince, he captured a large village.", "Compound", "He entered the prince's kingdom, and he captured a large village."],
+          ["The army killed all of Taimur's soldiers.", "Interrogative", "Didn't the army kill all of Taimur's soldiers?"],
+          ["He disguised himself as a poor traveller to survive.", "Complex", "He disguised himself as a poor traveller so that he could survive."],
+          ["He came to a house and asked for something to eat.", "Simple", "Coming to a house, he asked for something to eat."],
+          ["There lived an old woman in the house.", "Complex", "There was a house in which an old woman lived."],
+          ["The woman became sympathetic when she saw Taimur.", "Interrogative", "Didn't the woman become sympathetic when she saw Taimur?"],
+          ["The food was very hot.", "Exclamatory", "How hot the food was!"],
+          ["Taimur was too hungry to wait.", "Negative", "Taimur was so hungry that he could not wait."]
+        ]
+      }
+    ];
+
+    const changingSentenceAnswerKey = [
+      [
+        "Charles Babbage was not a non-British Mathematician.",
+        "He was born on 26 December 1791 and probably in London.",
+        "He was often unwell in his childhood.",
+        "In 1810, he went to Cambridge University so that he could satiate his interest in Mathematics.",
+        "He completed his graduation and after that the Royal Institution hired him to lecture on calculus.",
+        "In the 1820s he worked on a machine performing mathematical calculations.",
+        "His Difference Engine 1 was not so big and good as Difference Engine 2.",
+        "What a complex machine his invention, the Analytical Engine, was!",
+        "He is not forgotten for his invention as the pioneer of computers.",
+        "Didn't he die at his home on 18 October 1871?"
+      ],
+      [
+        "Will success come to one's life automatically?",
+        "You do not know it.",
+        "How important industry is for success!",
+        "So, isn't it called the mother of good luck?",
+        "A boy who is industrious will shine in life.",
+        "A life without an assignment is not an actual life.",
+        "A lazy man always curses his lot for his misfortune.",
+        "He is a great fool.",
+        "Without working hard, none can receive any reward.",
+        "Isn't it evident that industry is a great virtue?"
+      ],
+      [
+        "Doesn't it dazzle our eyes and soothe our heart?",
+        "They will always be with you.",
+        "Everybody appreciates him for his simplicity.",
+        "It is simplicity which can make you great.",
+        "All of my friends heard my success and congratulated me.",
+        "Let her remain conscious of retaining its reputation.",
+        "How optimistic the teachers are about their students!",
+        "Isn't the smartphone the most popular thing with students?",
+        "I wish I could open a Facebook account.",
+        "Unfortunately, studies do not give the students as much pleasure as Facebook does."
+      ],
+      [
+        "An aim is a goal, and one aspires to it.",
+        "It inspires one to long for a position that is certain.",
+        "Shouldn't everyone have an aim in life?",
+        "An aim is an obligatory choice for us.",
+        "None can reach the goal without a fixed aim.",
+        "It is an aim which is the most calculative target in our life.",
+        "There are not so many aims for men and women.",
+        "Doesn't an ambitious man try to fulfil his aim by hook or by crook?",
+        "Aim must not be selected thoughtfully.",
+        "People working hard can meet their aim."
+      ],
+      [
+        "What an exciting game cricket is!",
+        "Don't people of all ages enjoy the game?",
+        "What a popular game cricket is in our country!",
+        "People of all classes enjoy playing it in spite of its being a costly game.",
+        "Bangladesh is a Test-playing country, and it is developing its standard day by day.",
+        "Isn't it played all over the world?",
+        "The game is played between two teams, each of which consists of eleven players.",
+        "Performing well, the players can win the World Cup.",
+        "Isn't it full of thrill and excitement for the spectators?",
+        "We should not leave any stone unturned to improve its present position."
+      ],
+      [
+        "Aren't we proud of our freedom fighters?",
+        "Their contribution will always be remembered.",
+        "Nothing is so great as their sacrifice.",
+        "But today there are many of them who lead a miserable life.",
+        "Taking proper steps, their condition may be improved.",
+        "Hasn't their allowance been increased?",
+        "We should not disrespect them.",
+        "We should always remember their sacrifice.",
+        "We should not disregard their sacrifice.",
+        "They are the freedom fighters who are the real heroes."
+      ],
+      [
+        "Everybody wants to succeed in life.",
+        "It is a difficult task.",
+        "Without being industrious, none can prosper in life.",
+        "Those who are idle always lag behind.",
+        "We must work hard to earn money.",
+        "We work hard, and then we can improve our lot.",
+        "It is the hardworking person who can see the light of prosperity.",
+        "Women should not work less than men.",
+        "Shouldn't we remember that industry is the key to success?",
+        "What a miserable life an idle man leads!"
+      ],
+      [
+        "Mymensingh, which is an old town, has been declared a city corporation.",
+        "Isn't it one of the largest cities in Bangladesh?",
+        "It is famous as there are several reasons for it.",
+        "It is famous not only for educational institutions but also for agriculture.",
+        "The people of this district are not only active but also peace-loving.",
+        "The people living in Mymensingh City enjoy many modern facilities.",
+        "Everyone knows that Mymensingh was once the biggest district in Bengal.",
+        "How proud the people are of that!",
+        "We want the development of this city, and so some steps should be taken.",
+        "Let us work together to beautify our city."
+      ],
+      [
+        "Unemployment is a state of being without work to earn money.",
+        "It is a social evil, and it hampers the progress of social life.",
+        "The prosperity of a society depends upon the reasonable income of its able-bodied persons.",
+        "Nothing can increase the per capita income like them.",
+        "Unemployment is a social evil which cannot but be cured at any cost.",
+        "What a great problem it is!",
+        "Can the government alone solve this problem?",
+        "The young should find some ways so that they can be employed.",
+        "Nothing but perseverance of the young people can solve this problem.",
+        "We must solve this problem."
+      ],
+      [
+        "It is health which is wealth.",
+        "A sick moneyed man is not as happy as a healthy poor man.",
+        "A healthy man is an asset to his family, but an unhealthy man is a liability.",
+        "Can he succeed in life?",
+        "So, everybody has to be conscious of his health.",
+        "Nobody should neglect his health at any time.",
+        "Health can be improved by regular physical exercise and a balanced diet.",
+        "Poor people cannot afford to take a balanced diet.",
+        "How concerned they are with the quantity of food!",
+        "Malnutrition causes weakness, and everybody should know it."
+      ],
+      [
+        "We cannot but be grateful to the freedom fighters.",
+        "Is their contribution greater than any other thing?",
+        "The freedom fighters died in the Liberation War, and they are called martyrs.",
+        "The National Memorial has been built so that we can pay tribute to their memories.",
+        "No other son of the soil is as great as a freedom fighter.",
+        "Didn't we get our independence for their sacrifice?",
+        "They fought bravely to snatch the red sun of independence.",
+        "Their weapons were ordinary, but they had much courage in their minds.",
+        "We will always remember their contribution.",
+        "The government has taken some steps which aim to improve their condition."
+      ],
+      [
+        "Wasn't Taimur one of the greatest conquerors of the world?",
+        "Taimur was young, and he once attacked the province of a powerful prince.",
+        "He entered the kingdom of the prince, and he captured a large village.",
+        "Didn't the army kill all of Taimur's soldiers?",
+        "He disguised himself as a poor traveller so that he could survive.",
+        "He came to a house to ask for something to eat.",
+        "There was a house in which an old woman lived.",
+        "Wasn't the woman sympathetic when she saw Taimur?",
+        "How hot the food was!",
+        "Taimur was so hungry that he could not wait."
+      ]
+    ];
+
+    const transformationNotes = {
+      Negative: "Negative রূপে মূল বক্তব্যের অর্থ অক্ষুণ্ণ রাখতে not / cannot but / no other-এর মতো উপযুক্ত গঠন ব্যবহার করা হয়েছে।",
+      Affirmative: "Affirmative রূপে নেতিবাচক শব্দ বাদ দিয়ে সমার্থক ইতিবাচক গঠন ব্যবহার করা হয়েছে।",
+      Assertive: "Assertive রূপে প্রশ্ন বা বিস্ময়ের বদলে বক্তব্যটি সরাসরি বলা হয়েছে; মূল অর্থ বজায় রাখা হয়েছে।",
+      Interrogative: "Interrogative রূপে auxiliary verb subject-এর আগে বসে এবং শেষে প্রশ্নবোধক চিহ্ন ব্যবহৃত হয়।",
+      Exclamatory: "Exclamatory রূপে What/How-যুক্ত গঠন ও বিস্ময়সূচক চিহ্ন দিয়ে আবেগ প্রকাশ করা হয়েছে।",
+      Simple: "Simple sentence-এ subordinate clause-কে phrase, participle বা prepositional phrase-এ রূপান্তর করা হয়েছে।",
+      Complex: "Complex sentence-এ একটি principal clause-এর সঙ্গে কারণ, উদ্দেশ্য, relative বা অন্য subordinate clause যুক্ত হয়েছে।",
+      Compound: "Compound sentence-এ সমমর্যাদার independent clause-গুলো and/but-এর মতো coordinating conjunction দিয়ে যুক্ত হয়েছে।",
+      Imperative: "Imperative রূপে আদেশ, অনুরোধ বা প্রস্তাব বোঝাতে verb-এর base form বা Let us-গঠন ব্যবহার করা হয়েছে।"
+    };
+
+    const changingRules = [
+      {
+        type: "Negative",
+        title: "Affirmative → Negative",
+        bengaliTitle: "Affirmative থেকে Negative",
+        description: "মূল বক্তব্যের অর্থ না বদলে negative sentence তৈরি করতে not, no, never, none but বা cannot but-এর মতো গঠন ব্যবহার হয়। সব বাক্যে শুধু not যোগ করলেই অর্থ ঠিক থাকে না—সমার্থক গঠন বেছে নিতে হয়।",
+        examples: [
+          ["He is honest.", "He is not dishonest.", "সে সৎ।"],
+          ["We must respect our teachers.", "We cannot but respect our teachers.", "আমাদের শিক্ষকদের সম্মান করতেই হবে।"]
+        ]
+      },
+      {
+        type: "Affirmative",
+        title: "Negative → Affirmative",
+        bengaliTitle: "Negative থেকে Affirmative",
+        description: "Negative sentence-কে অর্থ অপরিবর্তিত রেখে Affirmative করতে not/never-যুক্ত অংশের সমার্থক ইতিবাচক রূপ ব্যবহার করো।",
+        examples: [
+          ["He is not dishonest.", "He is honest.", "সে অসৎ নয়। অর্থ: সে সৎ।"],
+          ["No one is absent.", "Everyone is present.", "কেউ অনুপস্থিত নয়। অর্থ: সবাই উপস্থিত।"]
+        ]
+      },
+      {
+        type: "Assertive",
+        title: "Interrogative / Exclamatory → Assertive",
+        bengaliTitle: "প্রশ্ন বা বিস্ময়সূচক থেকে Assertive",
+        description: "Rhetorical question বা exclamatory sentence-কে সরল বক্তব্যে রূপান্তর করো। প্রশ্নে থাকা অলংকারমূলক অর্থ ঠিক রেখে বাক্যের word order ও punctuation বদলাও।",
+        examples: [
+          ["Who does not love freedom?", "Everybody loves freedom.", "কে স্বাধীনতাকে ভালোবাসে না? অর্থ: সবাই স্বাধীনতাকে ভালোবাসে।"],
+          ["What a beautiful day it is!", "It is a very beautiful day.", "দিনটি কী সুন্দর!"]
+        ]
+      },
+      {
+        type: "Interrogative",
+        title: "Assertive → Interrogative",
+        bengaliTitle: "Assertive থেকে Interrogative",
+        description: "বক্তব্যের মূল অর্থ ও প্রত্যাশা অক্ষুণ্ণ রেখে auxiliary verb subject-এর আগে বসাও। Assertive বাক্যকে rhetorical question করলে সাধারণত negative question ব্যবহৃত হয়।",
+        examples: [
+          ["Everybody loves freedom.", "Who does not love freedom?", "সবাই স্বাধীনতাকে ভালোবাসে।"],
+          ["It is a beautiful day.", "Isn't it a beautiful day?", "দিনটি সুন্দর।"]
+        ]
+      },
+      {
+        type: "Exclamatory",
+        title: "Assertive → Exclamatory",
+        bengaliTitle: "Assertive থেকে Exclamatory",
+        description: "খুব/অত্যন্ত অর্থের adjective বা adverb থাকলে What/How দিয়ে আবেগ প্রকাশ করো। মূল বক্তব্য যেন একই থাকে এবং শেষে exclamation mark (!) বসে।",
+        examples: [
+          ["The flower is very beautiful.", "How beautiful the flower is!", "ফুলটি খুব সুন্দর।"],
+          ["It is a very exciting game.", "What an exciting game it is!", "এটি খুব রোমাঞ্চকর খেলা।"]
+        ]
+      },
+      {
+        type: "Simple",
+        title: "Complex / Compound → Simple",
+        bengaliTitle: "Complex বা Compound থেকে Simple",
+        description: "একটি finite clause রেখে subordinate clause-কে infinitive, participle, gerund বা prepositional phrase-এ ছোট করো। কর্তা, কাজের সময়/কারণ এবং মূল অর্থ যেন না বদলায়।",
+        examples: [
+          ["When he saw the police, he ran away.", "Seeing the police, he ran away.", "পুলিশকে দেখে সে পালিয়ে গেল।"],
+          ["Though he was poor, he was honest.", "In spite of his poverty, he was honest.", "দরিদ্র হলেও সে সৎ ছিল।"]
+        ]
+      },
+      {
+        type: "Complex",
+        title: "Simple → Complex",
+        bengaliTitle: "Simple থেকে Complex",
+        description: "একটি phrase-কে কারণ, সময়, শর্ত, উদ্দেশ্য বা relative clause-এ রূপান্তর করো। নতুন clause যোগ হলেও মূল বক্তব্যে নতুন কারণ বা তথ্য বানিয়ে যোগ করা যাবে না।",
+        examples: [
+          ["I saw a running train.", "I saw a train that was running.", "আমি একটি চলন্ত ট্রেন দেখলাম।"],
+          ["He works hard to succeed.", "He works hard so that he can succeed.", "সফল হওয়ার জন্য সে কঠোর পরিশ্রম করে।"]
+        ]
+      },
+      {
+        type: "Compound",
+        title: "Simple / Complex → Compound",
+        bengaliTitle: "Simple বা Complex থেকে Compound",
+        description: "Subordinate clause বা phrase-কে পূর্ণ independent clause-এ বদলে and, but, so, or-এর মতো coordinating conjunction দিয়ে যুক্ত করো। conjunction-টি বাক্যের প্রকৃত অর্থের সঙ্গে মিলতে হবে।",
+        examples: [
+          ["Being ill, he stayed at home.", "He was ill, so he stayed at home.", "অসুস্থ হওয়ায় সে বাড়িতে ছিল।"],
+          ["Though he was poor, he was honest.", "He was poor, but he was honest.", "সে দরিদ্র ছিল, কিন্তু সৎ ছিল।"]
+        ]
+      },
+      {
+        type: "Imperative",
+        title: "Assertive → Imperative",
+        bengaliTitle: "Assertive থেকে Imperative",
+        description: "আদেশ, অনুরোধ বা প্রস্তাব বোঝানো Assertive বাক্যকে imperative-এ বদলাও। উপযুক্ত হলে মূল verb দিয়ে শুরু করো; Let's / Let us দিয়ে প্রস্তাব প্রকাশ করো।",
+        examples: [
+          ["We should help the poor.", "Let us help the poor.", "আমাদের দরিদ্রদের সাহায্য করা উচিত।"],
+          ["You should keep the room clean.", "Keep the room clean.", "তোমার ঘরটি পরিষ্কার রাখা উচিত।"]
+        ]
+      }
+    ];
+
+    function makeChangingQuestion(set, setIndex, item, questionIndex) {
+      const [source, target] = item;
+      const correct = changingSentenceAnswerKey[setIndex][questionIndex];
+      const antonyms = {
+        important: "unimportant", beautiful: "ugly", exciting: "boring", popular: "unpopular",
+        hot: "cold", proud: "ashamed", happy: "sad", great: "small", complex: "simple",
+        success: "failure", remember: "forget", respect: "disrespect", improve: "worsen",
+        famous: "unknown", honest: "dishonest", miserable: "happy", good: "bad",
+        poor: "wealthy", simple: "complicated", better: "worse", worse: "better",
+        bigger: "smaller", smaller: "bigger", british: "French", london: "Paris",
+        child: "adult", unwell: "well", old: "young", active: "inactive",
+        peace: "war", always: "never", never: "always", remember: "forget",
+        love: "hate", succeed: "fail", idle: "hardworking",
+        health: "illness", hot: "cold", increase: "decrease", true: "false",
+        easy: "difficult", difficult: "easy", costly: "cheap",
+        thoughtfully: "carelessly", carelessly: "thoughtfully", regard: "disregard",
+        grateful: "ungrateful", everybody: "nobody", everyone: "no one",
+        enjoy: "dislike", played: "watched", full: "empty", increased: "decreased",
+        largest: "smallest", get: "lose", lazy: "hardworking", curses: "blesses",
+        simplicity: "complexity", live: "die", bravely: "cowardly",
+        inspires: "discourages", prospers: "suffers", graduated: "failed",
+        attacked: "protected", captured: "lost", remain: "leave", beautify: "damage",
+        capable: "incapable", calculations: "guesses", tries: "fails", opposing: "supporting",
+        thought: "unthoughtful", respectful: "disrespectful", successes: "failures",
+        freedom: "captivity", die: "live", hotly: "coldly", becomes: "remains",
+        reasonable: "unreasonable", elected: "rejected", eat: "drink", drink: "eat"
+      };
+      const antonymPattern = new RegExp(`\\b(${Object.keys(antonyms).sort((a, b) => b.length - a.length).join("|")})\\b`, "i");
+      const replaceWithAntonym = (sentence) => sentence.replace(antonymPattern, (word) => {
+        const replacement = antonyms[word.toLowerCase()];
+        return word[0] === word[0].toUpperCase()
+          ? replacement[0].toUpperCase() + replacement.slice(1)
+          : replacement;
+      });
+      const antonymVersion = replaceWithAntonym(correct);
+      const sourceAntonymVersion = replaceWithAntonym(source);
+      const mutableAuxiliary = /\b(is|are|was|were|will|would|can|could|should|must)(?!['’]t)\b/i;
+      const toggledNegation = /\bnot\b/i.test(correct)
+        ? correct.replace(/\bnot\b/i, "")
+        : /\bnever\b/i.test(correct)
+            ? correct.replace(/\bnever\b/i, "always")
+            : correct.replace(mutableAuxiliary, "$1 not");
+      const tenseSwaps = { is: "was", are: "were", was: "is", were: "are", will: "can", would: "could", can: "will", could: "would", should: "must", must: "should" };
+      const changedTense = correct.replace(mutableAuxiliary, (auxiliary) =>
+        tenseSwaps[auxiliary.toLowerCase()] || auxiliary
+      );
+      const positiveQuestionVersion = correct.replace(
+        /\b(isn't|aren't|wasn't|weren't|don't|doesn't|didn't|hasn't|haven't|hadn't|won't|wouldn't|can't|couldn't|shouldn't|mustn't)\b/gi,
+        (contraction) => ({
+          "isn't": "is", "aren't": "are", "wasn't": "was", "weren't": "were",
+          "don't": "do", "doesn't": "does", "didn't": "did", "hasn't": "has",
+          "haven't": "have", "hadn't": "had", "won't": "will", "wouldn't": "would",
+          "can't": "can", "couldn't": "could", "shouldn't": "should", "mustn't": "must"
+        })[contraction.toLowerCase()] || contraction
+      );
+      const alternatives = [
+        source,
+        sourceAntonymVersion,
+        toggledNegation,
+        antonymVersion,
+        changedTense,
+        positiveQuestionVersion,
+        correct.replace(/[.!?]$/, (mark) => mark === "?" ? "." : "?")
+      ];
+      const options = [correct];
+      alternatives.forEach((candidate) => {
+        const cleaned = candidate.trim();
+        if (options.length < 4 &&
+            cleaned.toLowerCase() !== correct.toLowerCase() &&
+            !options.some((option) => option.toLowerCase() === cleaned.toLowerCase())) {
+          options.push(cleaned);
+        }
+      });
+      const sourceStatement = source.endsWith(".") ? source.slice(0, -1) : source;
+      const correctStatement = correct.endsWith(".") ? correct.slice(0, -1) : correct;
+      const lowerFirst = (sentence) => sentence[0].toLowerCase() + sentence.slice(1);
+      [
+        `It is not true that ${lowerFirst(sourceStatement)}.`,
+        `It is false that ${lowerFirst(correctStatement)}.`,
+        `It is definitely not true that ${lowerFirst(correctStatement)}.`
+      ].forEach((candidate) => {
+        if (options.length < 4 && !options.some((option) => option.toLowerCase() === candidate.toLowerCase())) {
+          options.push(candidate);
+        }
+      });
+      for (let index = options.length - 1; index > 0; index--) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [options[index], options[swapIndex]] = [options[swapIndex], options[index]];
+      }
+      const correctIndex = options.findIndex((option) => option.toLowerCase() === correct.toLowerCase());
+      return {
+        question: `Change into ${target} without changing the meaning: “${source}”`,
+        options,
+        correctIndex,
+        explanation: `${transformationNotes[target]} মূল বাক্য ও রূপান্তরিত বাক্যের অর্থ একই থাকতে হবে।`,
+        ruleId: 1,
+        sectionTitle: target,
+        target,
+        sourceSet: set.title,
+        setIndex,
+        questionIndex
+      };
+    }
+
+    if (changingSentenceAnswerKey.length !== changingSentenceSets.length ||
+        changingSentenceAnswerKey.some((answers, index) => answers.length !== changingSentenceSets[index].items.length)) {
+      throw new Error("Changing Sentence answer key does not match the question sets.");
+    }
+
+    changingSentenceSets.forEach((set, setIndex) => {
+      set.questions = set.items.map((item, questionIndex) =>
+        makeChangingQuestion(set, setIndex, item, questionIndex)
+      );
+    });
+
+    const changingRuleQuestions = changingRules.map((rule) => ({
+      ...rule,
+      questions: changingSentenceSets.flatMap((set) =>
+        set.questions.filter((question) => question.target === rule.type)
+      )
+    }));
+
+    const appContent = document.getElementById("appContent");
+    const stageBadge = document.getElementById("stageBadge");
+    const progressLabel = document.getElementById("progressLabel");
+    const scoreLabel = document.getElementById("scoreLabel");
+    const progressFill = document.getElementById("progressFill");
+    const progressBar = document.querySelector('[role="progressbar"]');
+    const checkpointTrail = document.getElementById("checkpointTrail");
+    const answerEffect = document.getElementById("answerEffect");
+    const soundToggle = document.getElementById("soundToggle");
+
+    let ruleIndex = 0;
+    let courseMode = "home";
+    let changingRuleIndex = 0;
+    let questionIndex = 0;
+    let stage = "rule";
+    let activeQuestions = [];
+    let selectedIndex = null;
+    let optionsRevealed = false;
+    let correctTotal = 0;
+    let answeredTotal = 0;
+    let soundEnabled = true;
+    let audioContext = null;
+    let effectTimer = null;
+    let completedStages = new Set();
+    function createAnswerBreakdown() {
+      return {
+        practice: { correct: 0, total: 0 },
+        checkpoint1: { correct: 0, total: 0 },
+        checkpoint2: { correct: 0, total: 0 },
+        final: { correct: 0, total: 0 },
+        changing: { correct: 0, total: 0 },
+        changingByRule: Object.fromEntries(changingRules.map((rule) => [rule.type, { correct: 0, total: 0 }]))
+      };
+    }
+
+    let answerBreakdown = createAnswerBreakdown();
+
+    function makeElement(tag, className, text) {
+      const element = document.createElement(tag);
+      if (className) element.className = className;
+      if (text !== undefined) element.textContent = text;
+      return element;
+    }
+
+    function setSoundEnabled(enabled) {
+      soundEnabled = enabled;
+      soundToggle.textContent = enabled ? "🔊 Sound on" : "🔇 Sound off";
+      soundToggle.setAttribute("aria-pressed", String(enabled));
+      soundToggle.title = enabled ? "Turn answer sounds off" : "Turn answer sounds on";
+    }
+
+    function playAnswerSound(correct) {
+      if (!soundEnabled) return;
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) {
+        setSoundEnabled(false);
+        soundToggle.title = "Sound is not supported in this browser";
+        return;
+      }
+
+      try {
+        audioContext ||= new AudioContextClass();
+        const notes = correct
+          ? [{ frequency: 523.25, time: 0, duration: 0.18 }, { frequency: 659.25, time: 0.12, duration: 0.2 }, { frequency: 783.99, time: 0.25, duration: 0.32 }]
+          : [{ frequency: 260, time: 0, duration: 0.2 }, { frequency: 190, time: 0.17, duration: 0.3 }];
+
+        audioContext.resume().then(() => {
+          const now = audioContext.currentTime;
+          notes.forEach((note) => {
+            const oscillator = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            const startAt = now + note.time;
+            oscillator.type = correct ? "sine" : "triangle";
+            oscillator.frequency.setValueAtTime(note.frequency, startAt);
+            gain.gain.setValueAtTime(0.0001, startAt);
+            gain.gain.exponentialRampToValueAtTime(0.055, startAt + 0.025);
+            gain.gain.exponentialRampToValueAtTime(0.0001, startAt + note.duration);
+            oscillator.connect(gain);
+            gain.connect(audioContext.destination);
+            oscillator.start(startAt);
+            oscillator.stop(startAt + note.duration);
+          });
+        }).catch(() => {
+          setSoundEnabled(false);
+          soundToggle.title = "Could not play sound. Click to try again.";
+        });
+      } catch {
+        setSoundEnabled(false);
+        soundToggle.title = "Could not play sound. Click to try again.";
+      }
+    }
+
+    function showAnswerEffect(correct) {
+      const colors = correct
+        ? ["#34d399", "#a3e635", "#facc15", "#818cf8", "#f472b6", "#ffffff"]
+        : ["#fb7185", "#f43f5e", "#fda4af", "#ffffff"];
+      const particleCount = correct ? 46 : 20;
+      const message = makeElement("div", "effect-message");
+      message.append(
+        makeElement("span", "effect-emoji", correct ? "🏆" : "😵‍💫"),
+        makeElement("span", "effect-title", correct ? "WINNER!" : "LOSER!")
+      );
+
+      answerEffect.className = `answer-effect is-visible ${correct ? "is-correct" : "is-wrong"}`;
+      answerEffect.replaceChildren();
+      for (let i = 0; i < particleCount; i++) {
+        const particle = makeElement("span", "effect-particle");
+        const angle = (Math.PI * 2 * i) / particleCount + (Math.random() - 0.5) * 0.22;
+        const distance = 90 + Math.random() * Math.min(window.innerWidth, window.innerHeight) * 0.52;
+        particle.style.setProperty("--dx", `${Math.cos(angle) * distance}px`);
+        particle.style.setProperty("--dy", `${Math.sin(angle) * distance}px`);
+        particle.style.setProperty("--spin", `${Math.round(Math.random() * 720 - 360)}deg`);
+        particle.style.setProperty("--size", `${5 + Math.random() * 9}px`);
+        particle.style.setProperty("--delay", `${Math.round(Math.random() * 100)}ms`);
+        particle.style.setProperty("--particle-color", colors[i % colors.length]);
+        answerEffect.append(particle);
+      }
+      answerEffect.append(message);
+      window.clearTimeout(effectTimer);
+      effectTimer = window.setTimeout(() => {
+        answerEffect.className = "answer-effect";
+        answerEffect.replaceChildren();
+      }, 1500);
+    }
+
+    function setProgress(label, badge, percent) {
+      progressLabel.textContent = label;
+      stageBadge.textContent = badge;
+      checkpointTrail.hidden = courseMode !== "verbs";
+      const safePercent = Math.max(0, Math.min(100, percent));
+      progressFill.style.width = `${safePercent}%`;
+      progressBar.setAttribute("aria-valuenow", String(Math.round(safePercent)));
+      scoreLabel.textContent = `${correctTotal} correct · ${answeredTotal} answered`;
+      document.querySelectorAll("[data-checkpoint]").forEach((item) => {
+        const key = item.dataset.checkpoint;
+        const complete = completedStages.has(key);
+        item.className = complete
+          ? "rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-emerald-300"
+          : "rounded-lg border border-slate-800 px-2.5 py-1 text-slate-500";
+      });
+    }
+
+    function renderHome() {
+      courseMode = "home";
+      setProgress("Choose a course to begin", "WELCOME", 0);
+      const wrapper = makeElement("section", "mx-auto max-w-4xl");
+      wrapper.append(
+        makeElement("p", "text-center text-xs font-bold uppercase tracking-[.25em] text-indigo-300", "ENGLISH GRAMMAR PRACTICE"),
+        makeElement("h1", "mt-3 text-center text-3xl font-black text-white sm:text-4xl", "What would you like to practise?"),
+        makeElement("p", "mx-auto mt-3 max-w-2xl text-center leading-7 text-slate-400", "Choose a section. Each course has its own lessons, questions, and score.")
+      );
+
+      const cards = makeElement("div", "mt-8 grid gap-5 md:grid-cols-2");
+      const courses = [
+        {
+          title: "Right Form of Verb",
+          badge: "29 RULES · 145 PRACTICE QUESTIONS",
+          button: "Open verb rules",
+          accent: "from-indigo-500/15 to-violet-500/5",
+          action: () => startCourse("verbs")
+        },
+        {
+          title: "Changing Sentence",
+          badge: "9 RULES · 120 QUESTIONS",
+          button: "Open transformation rules",
+          accent: "from-emerald-500/15 to-teal-500/5",
+          action: () => startCourse("changing")
+        }
+      ];
+
+      courses.forEach((course) => {
+        const card = makeElement("article", `glass flex flex-col rounded-3xl border border-slate-700/80 bg-gradient-to-br ${course.accent} p-6 shadow-xl shadow-black/20 sm:p-8`);
+        card.append(
+          makeElement("span", "w-fit rounded-full border border-slate-600/70 bg-slate-900/50 px-3 py-1 text-[11px] font-bold tracking-wider text-slate-300", course.badge),
+          makeElement("h2", "mt-5 text-2xl font-black text-white", course.title)
+        );
+        const button = makeElement("button", "mt-6 w-full rounded-xl bg-indigo-500 px-5 py-3.5 font-bold text-white transition hover:bg-indigo-400", course.button);
+        button.type = "button";
+        button.addEventListener("click", course.action);
+        card.append(button);
+        cards.append(card);
+      });
+
+      wrapper.append(cards);
+      appContent.replaceChildren(wrapper);
+    }
+
+    function startCourse(mode) {
+      courseMode = mode;
+      ruleIndex = 0;
+      changingRuleIndex = 0;
+      questionIndex = 0;
+      stage = mode === "verbs" ? "rule" : "changing-lesson";
+      activeQuestions = [];
+      selectedIndex = null;
+      optionsRevealed = false;
+      correctTotal = 0;
+      answeredTotal = 0;
+      completedStages = new Set();
+      answerBreakdown = createAnswerBreakdown();
+      if (mode === "verbs") renderRuleCard();
+      else renderChangingRuleList();
+    }
+
+    function renderChangingRuleList() {
+      courseMode = "changing";
+      stage = "changing-list";
+      setProgress("Choose a transformation rule", "CHANGING SENTENCE", 0);
+      const wrapper = makeElement("section", "mx-auto max-w-5xl");
+      wrapper.append(
+        makeElement("p", "text-center text-xs font-bold uppercase tracking-[.25em] text-emerald-300", "CHANGING SENTENCE"),
+        makeElement("h1", "mt-3 text-center text-3xl font-black text-white sm:text-4xl", "Choose a rule to study"),
+        makeElement("p", "mx-auto mt-3 max-w-2xl text-center leading-7 text-slate-400", "প্রতিটি নিয়মে আগে বাংলা ব্যাখ্যা ও উদাহরণ পড়ুন, তারপর শুধু সেই নিয়মের প্রশ্ন অনুশীলন করুন। বাক্যের মূল অর্থ অপরিবর্তিত রাখুন।")
+      );
+      const cards = makeElement("div", "mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3");
+
+      changingRuleQuestions.forEach((rule, index) => {
+        const score = answerBreakdown.changingByRule?.[rule.type] || { correct: 0, total: 0 };
+        const card = makeElement("article", "glass flex flex-col rounded-2xl border border-slate-700/80 p-5 transition hover:border-emerald-400/50");
+        card.append(
+          makeElement("span", "text-xs font-bold uppercase tracking-wider text-emerald-300", rule.type),
+          makeElement("h2", "mt-2 text-lg font-bold text-white", rule.bengaliTitle),
+          makeElement("p", "mt-2 flex-1 text-sm leading-6 text-slate-400", `${rule.questions.length}টি অনুশীলন প্রশ্ন`),
+          makeElement("p", "mt-3 text-xs text-slate-500", `অগ্রগতি: ${score.correct}/${score.total}`)
+        );
+        const open = makeElement("button", "mt-4 w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-bold text-slate-200 transition hover:border-emerald-400/40 hover:text-white", "নিয়ম পড়ুন");
+        open.type = "button";
+        open.addEventListener("click", () => {
+          changingRuleIndex = index;
+          renderChangingRuleIntro();
+        });
+        card.append(open);
+        cards.append(card);
+      });
+
+      const back = makeElement("button", "mt-6 rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-300 transition hover:border-slate-500 hover:text-white", "Back to courses");
+      back.type = "button";
+      back.addEventListener("click", renderHome);
+      wrapper.append(cards, back);
+      appContent.replaceChildren(wrapper);
+    }
+
+    function renderChangingRuleIntro() {
+      const rule = changingRuleQuestions[changingRuleIndex];
+      stage = "changing-intro";
+      const completed = answerBreakdown.changingByRule?.[rule.type] || { correct: 0, total: 0 };
+      setProgress(`Rule ${changingRuleIndex + 1} of ${changingRuleQuestions.length}`, "RULE INTRODUCTION", (changingRuleIndex / changingRuleQuestions.length) * 100);
+      const card = makeElement("article", "glass rounded-3xl border border-slate-700/80 p-6 shadow-2xl shadow-black/20 sm:p-9");
+      card.append(
+        makeElement("p", "mb-3 text-xs font-bold uppercase tracking-[.2em] text-emerald-300", `CHANGING SENTENCE · RULE ${changingRuleIndex + 1} OF ${changingRuleQuestions.length}`),
+        makeElement("h1", "text-3xl font-black tracking-tight text-white sm:text-4xl", rule.bengaliTitle),
+        makeElement("p", "mt-5 max-w-3xl whitespace-pre-line text-base leading-7 text-slate-300", rule.description)
+      );
+
+      const examplesHeading = makeElement("h2", "mt-7 text-lg font-bold text-white", "উদাহরণ: অর্থ একই, বাক্যের রূপ আলাদা");
+      const examples = makeElement("div", "mt-3 grid gap-3");
+      rule.examples.forEach(([source, transformed, bengali]) => {
+        const example = makeElement("div", "rounded-xl border border-slate-700 bg-slate-900/70 p-4");
+        example.append(
+          makeElement("p", "text-xs font-bold uppercase tracking-wider text-slate-500", "মূল বাক্য"),
+          makeElement("p", "mt-1 text-sm leading-6 text-slate-200", source),
+          makeElement("p", "mt-3 text-xs font-bold uppercase tracking-wider text-emerald-300", "রূপান্তর"),
+          makeElement("p", "mt-1 text-sm leading-6 text-white", transformed),
+          makeElement("p", "mt-2 border-t border-slate-700/70 pt-2 text-sm leading-6 text-indigo-200", `বাংলা অর্থ: ${bengali}`)
+        );
+        examples.append(example);
+      });
+      card.append(examplesHeading, examples);
+
+      const note = makeElement("p", "mt-6 text-sm leading-6 text-amber-200/90", "মনে রাখুন: affirmative/negative বা sentence structure বদলাতে পারে, কিন্তু বাক্যের বক্তব্য ও অর্থ বদলানো যাবে না।");
+      const actions = makeElement("div", "mt-7 flex flex-col gap-3 sm:flex-row");
+      const start = makeElement("button", "rounded-xl bg-emerald-500 px-5 py-3.5 font-bold text-emerald-950 transition hover:bg-emerald-400", `${rule.questions.length}টি প্রশ্ন অনুশীলন করুন`);
+      start.type = "button";
+      start.disabled = rule.questions.length === 0;
+      start.addEventListener("click", () => beginStage("changing", rule.questions));
+      const back = makeElement("button", "rounded-xl border border-slate-700 px-5 py-3.5 font-semibold text-slate-300 transition hover:border-slate-500 hover:text-white", "সব নিয়মে ফিরুন");
+      back.type = "button";
+      back.addEventListener("click", renderChangingRuleList);
+      actions.append(start, back);
+      card.append(makeElement("p", "mt-4 text-sm text-slate-500", `এ পর্যন্ত ${completed.total}টির মধ্যে ${completed.correct}টি সঠিক হয়েছে।`), note, actions);
+      appContent.replaceChildren(card);
+    }
+
+    function renderRuleCard() {
+      const rule = rulesDatabase[ruleIndex];
+      setProgress(`Rule ${rule.id} of 29`, "LEARN THE RULE", ((rule.id - 1) / 29) * 100);
+      const card = makeElement("article", "glass rounded-3xl border border-slate-700/80 p-6 shadow-2xl shadow-black/20 sm:p-9");
+      const eyebrow = makeElement("p", "mb-3 text-xs font-bold uppercase tracking-[.2em] text-indigo-300", `Lesson ${String(rule.id).padStart(2, "0")} · Rule ${rule.id} of 29`);
+      const title = makeElement("h1", "text-3xl font-black tracking-tight text-white sm:text-4xl", rule.title);
+      const description = makeElement("p", "mt-5 max-w-3xl whitespace-pre-line text-base leading-7 text-slate-300", rule.description);
+      card.append(eyebrow, title, description);
+
+      const examples = makeElement("div", "mt-7 grid gap-3 sm:grid-cols-2");
+      rule.examples.forEach(([english, bengali]) => {
+        const exampleCard = makeElement("div", "rounded-xl border border-slate-700 bg-slate-900/70 p-4");
+        exampleCard.append(
+          makeElement("p", "text-sm leading-6 text-slate-200", english),
+          makeElement("p", "mt-2 border-t border-slate-700/70 pt-2 text-sm leading-6 text-indigo-200", `বাংলা: ${bengali}`)
+        );
+        examples.append(exampleCard);
+      });
+      card.append(examples);
+
+      const note = makeElement("p", "mt-6 text-sm text-slate-400", "These examples are for learning. Your five practice questions use different sentences.");
+      const start = makeElement("button", "mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3.5 font-bold text-white shadow-lg shadow-indigo-950/50 transition hover:bg-indigo-400 sm:w-auto", "Start 5-question practice");
+      start.type = "button";
+      start.addEventListener("click", () => beginStage("practice", rule.questions));
+      card.append(note, start);
+      appContent.replaceChildren(card);
+    }
+
+    function beginStage(nextStage, questions) {
+      stage = nextStage;
+      activeQuestions = questions;
+      questionIndex = 0;
+      selectedIndex = null;
+      optionsRevealed = false;
+      renderQuestion();
+    }
+
+    function getStageInfo() {
+      if (stage === "changing") {
+        const rule = changingRuleQuestions[changingRuleIndex];
+        return {
+          label: `${rule.title} · Question ${questionIndex + 1} of ${activeQuestions.length}`,
+          badge: "RULE PRACTICE"
+        };
+      }
+      if (stage === "practice") {
+        return { label: `Rule ${ruleIndex + 1} practice · ${questionIndex + 1} of 5`, badge: "RULE PRACTICE" };
+      }
+      if (stage === "checkpoint1") return { label: `Checkpoint 1 · Question ${questionIndex + 1} of ${activeQuestions.length}`, badge: "CHECKPOINT 1" };
+      if (stage === "checkpoint2") return { label: `Checkpoint 2 · Question ${questionIndex + 1} of ${activeQuestions.length}`, badge: "CHECKPOINT 2" };
+      return { label: `Grand Test · Question ${questionIndex + 1} of ${activeQuestions.length}`, badge: "FINAL GRAND TEST" };
+    }
+
+    function renderQuestion() {
+      const question = activeQuestions[questionIndex];
+      const questionRule = question.sectionTitle || rulesDatabase[(question.ruleId || ruleIndex + 1) - 1].title;
+      const info = getStageInfo();
+      const overallPercent = stage === "practice"
+        ? ((ruleIndex + questionIndex / activeQuestions.length) / 29) * 100
+        : stage === "changing"
+          ? ((questionIndex + 1) / activeQuestions.length) * 100
+        : stage === "checkpoint1" ? (10 / 29) * 100
+          : stage === "checkpoint2" ? (20 / 29) * 100 : 100;
+      setProgress(info.label, info.badge, overallPercent);
+
+      const card = makeElement("section", "glass rounded-3xl border border-slate-700/80 p-5 shadow-2xl shadow-black/20 sm:p-8");
+      const topLine = makeElement("div", "mb-5 flex flex-wrap items-center justify-between gap-2");
+      topLine.append(
+        makeElement("span", "rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300", questionRule),
+        makeElement("span", "text-xs font-medium text-slate-500", `Question ${questionIndex + 1} / ${activeQuestions.length}`)
+      );
+      const heading = makeElement("h1", "text-xl font-bold leading-8 text-white sm:text-2xl", question.question);
+      const options = makeElement("div", "mt-6 grid gap-3");
+      const letters = ["A", "B", "C", "D", "E", "F"];
+
+      card.append(topLine, heading);
+      if (optionsRevealed || selectedIndex !== null) {
+        question.options.forEach((option, index) => {
+          const button = makeElement("button", "option-button flex w-full items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/70 p-3.5 text-left text-sm leading-6 text-slate-200 sm:p-4");
+          button.type = "button";
+          button.disabled = selectedIndex !== null;
+          const letter = makeElement("span", "grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-800 text-xs font-bold text-slate-300", letters[index] || String(index + 1));
+          const answerText = makeElement("span", "flex-1", option);
+          button.append(letter, answerText);
+
+          if (selectedIndex !== null && index === question.correctIndex) {
+            button.className = "option-button flex w-full items-center gap-3 rounded-xl border border-emerald-400 bg-emerald-500 p-3.5 text-left text-sm font-semibold leading-6 text-emerald-950 sm:p-4";
+            letter.className = "grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-600/25 text-xs font-bold text-emerald-950";
+          } else if (selectedIndex === index) {
+            button.className = "option-button flex w-full items-center gap-3 rounded-xl border border-rose-400 bg-rose-500 p-3.5 text-left text-sm font-semibold leading-6 text-rose-950 sm:p-4";
+            letter.className = "grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-rose-600/25 text-xs font-bold text-rose-950";
+          } else if (selectedIndex !== null) {
+            button.className = "option-button flex w-full items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/50 p-3.5 text-left text-sm leading-6 text-slate-500 opacity-60 sm:p-4";
+          }
+
+          button.addEventListener("click", () => selectAnswer(index));
+          options.append(button);
+        });
+        card.append(options);
+      } else {
+        const revealButton = makeElement("button", "mt-7 flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-400/40 bg-indigo-500/10 px-5 py-3.5 font-bold text-indigo-200 transition hover:border-indigo-300 hover:bg-indigo-500/20 sm:w-auto", "🤔 উত্তরটি জানি না — ৪টি অপশন দেখাও");
+        revealButton.type = "button";
+        revealButton.addEventListener("click", () => {
+          optionsRevealed = true;
+          renderQuestion();
+        });
+        card.append(revealButton);
+        card.append(makeElement("p", "mt-3 text-center text-xs text-slate-500 sm:text-left", "Try to answer on your own first. Reveal the choices if you need help."));
+      }
+
+      if (selectedIndex !== null) {
+        const isCorrect = selectedIndex === question.correctIndex;
+        const explanation = makeElement("div", `mt-5 rounded-xl border p-4 ${isCorrect ? "winner-feedback border-emerald-400/40 bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-indigo-500/10" : "try-again-feedback border-rose-400/30 bg-rose-500/10"}`);
+        const resultRow = makeElement("div", "flex flex-wrap items-center gap-2");
+        const resultBadge = makeElement("span", `inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-black ${isCorrect ? "bg-emerald-400/20 text-emerald-300" : "bg-rose-400/15 text-rose-300"}`, isCorrect ? "🏆 Winner!" : "😅 Try again!");
+        resultRow.append(resultBadge);
+        if (isCorrect) {
+          resultRow.append(makeElement("span", "winner-sparkle text-lg", "✨"));
+          resultRow.append(makeElement("span", "text-sm font-semibold text-emerald-200", "You got it right!"));
+        } else {
+          resultRow.append(makeElement("span", "text-sm font-semibold text-rose-200", "The correct answer is highlighted above."));
+        }
+        const explanationText = makeElement("p", "mt-1 text-sm leading-6 text-slate-300", question.explanation);
+        explanation.append(resultRow, explanationText);
+        card.append(explanation);
+
+        const next = makeElement("button", "mt-6 flex w-full items-center justify-center rounded-xl bg-indigo-500 px-5 py-3.5 font-bold text-white transition hover:bg-indigo-400 sm:ml-auto sm:w-auto", questionIndex === activeQuestions.length - 1 ? "Finish this section" : "Next question");
+        next.type = "button";
+        next.addEventListener("click", advanceQuestion);
+        card.append(next);
+      } else {
+        const hint = makeElement("p", "mt-5 text-center text-xs text-slate-500", "Choose one answer to see the explanation.");
+        card.append(hint);
+      }
+      appContent.replaceChildren(card);
+    }
+
+    function selectAnswer(index) {
+      if (selectedIndex !== null) return;
+      selectedIndex = index;
+      const question = activeQuestions[questionIndex];
+      const correct = index === question.correctIndex;
+      showAnswerEffect(correct);
+      playAnswerSound(correct);
+      answeredTotal += 1;
+      if (correct) correctTotal += 1;
+      const category = stage === "practice" ? "practice" : stage;
+      answerBreakdown[category].total += 1;
+      if (correct) answerBreakdown[category].correct += 1;
+      if (stage === "changing") {
+        const ruleScore = answerBreakdown.changingByRule[question.target];
+        ruleScore.total += 1;
+        if (correct) ruleScore.correct += 1;
+      }
+      renderQuestion();
+    }
+
+    function advanceQuestion() {
+      if (selectedIndex === null) return;
+      if (questionIndex < activeQuestions.length - 1) {
+        questionIndex += 1;
+        selectedIndex = null;
+        optionsRevealed = false;
+        renderQuestion();
+        return;
+      }
+      finishStage();
+    }
+
+    function finishStage() {
+      if (stage === "changing") {
+        completedStages.add(`changing:${changingRuleQuestions[changingRuleIndex].type}`);
+        renderChangingRuleResults();
+      } else if (stage === "practice") {
+        if (ruleIndex === 9) {
+          beginStage("checkpoint1", checkpointQuestions.checkpoint1);
+        } else if (ruleIndex === 19) {
+          beginStage("checkpoint2", checkpointQuestions.checkpoint2);
+        } else if (ruleIndex === 28) {
+          beginStage("final", checkpointQuestions.final);
+        } else {
+          ruleIndex += 1;
+          stage = "rule";
+          renderRuleCard();
+        }
+      } else if (stage === "checkpoint1") {
+        completedStages.add("1");
+        ruleIndex = 10;
+        stage = "rule";
+        renderRuleCard();
+      } else if (stage === "checkpoint2") {
+        completedStages.add("2");
+        ruleIndex = 20;
+        stage = "rule";
+        renderRuleCard();
+      } else {
+        completedStages.add("final");
+        renderResults();
+      }
+    }
+
+    function renderChangingRuleResults() {
+      const rule = changingRuleQuestions[changingRuleIndex];
+      const result = answerBreakdown.changingByRule[rule.type];
+      const percent = result.total ? Math.round((result.correct / result.total) * 100) : 0;
+      stage = "changing-results";
+      setProgress(`${rule.title} · complete`, "RULE COMPLETE", 100);
+      const card = makeElement("section", "glass rounded-3xl border border-slate-700/80 p-6 shadow-2xl shadow-black/20 sm:p-9");
+      card.append(
+        makeElement("p", "text-center text-xs font-bold uppercase tracking-[.2em] text-emerald-300", "RULE PRACTICE COMPLETE"),
+        makeElement("h1", "mt-3 text-center text-3xl font-black text-white sm:text-4xl", rule.bengaliTitle),
+        makeElement("p", "mt-4 text-center leading-7 text-slate-300", `আপনি ${result.total}টি প্রশ্নের মধ্যে ${result.correct}টির উত্তর সঠিক দিয়েছেন।`)
+      );
+      const score = makeElement("div", "mx-auto mt-7 max-w-xs rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-5 text-center");
+      score.append(
+        makeElement("p", "text-sm font-semibold uppercase tracking-widest text-emerald-300", "Your score"),
+        makeElement("p", "mt-1 text-5xl font-black text-white", `${percent}%`)
+      );
+      const actions = makeElement("div", "mt-7 flex flex-col justify-center gap-3 sm:flex-row");
+      const retry = makeElement("button", "rounded-xl bg-emerald-500 px-5 py-3.5 font-bold text-emerald-950 transition hover:bg-emerald-400", "আবার অনুশীলন করুন");
+      retry.type = "button";
+      retry.addEventListener("click", () => beginStage("changing", rule.questions));
+      const back = makeElement("button", "rounded-xl border border-slate-700 px-5 py-3.5 font-semibold text-slate-300 transition hover:border-slate-500 hover:text-white", "সব নিয়মে ফিরুন");
+      back.type = "button";
+      back.addEventListener("click", renderChangingRuleList);
+      actions.append(retry, back);
+      card.append(score, actions);
+      appContent.replaceChildren(card);
+    }
+
+    function renderResults() {
+      setProgress("Right Form of Verb · 29 rules complete", "COURSE COMPLETE", 100);
+      const percent = answeredTotal ? Math.round((correctTotal / answeredTotal) * 100) : 0;
+      const card = makeElement("section", "glass rounded-3xl border border-slate-700/80 p-6 shadow-2xl shadow-black/20 sm:p-9");
+      const icon = makeElement("div", "mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-emerald-500/15 text-3xl text-emerald-300", "✓");
+      icon.setAttribute("aria-hidden", "true");
+      const heading = makeElement("h1", "mt-5 text-center text-3xl font-black text-white sm:text-4xl", "You completed Right Form of Verb!");
+      const summary = makeElement("p", "mx-auto mt-3 max-w-xl text-center leading-7 text-slate-300", `You answered ${answeredTotal} questions and got ${correctTotal} correct. Keep practising to make the rules stick.`);
+      const score = makeElement("div", "mt-7 rounded-2xl border border-indigo-400/20 bg-indigo-500/10 p-5 text-center");
+      score.append(
+        makeElement("p", "text-sm font-semibold uppercase tracking-widest text-indigo-300", "Overall score"),
+        makeElement("p", "mt-1 text-5xl font-black text-white", `${percent}%`),
+        makeElement("p", "mt-2 text-sm text-slate-400", `${correctTotal} correct out of ${answeredTotal}`)
+      );
+      const breakdown = makeElement("div", "mt-6 grid gap-3 sm:grid-cols-2");
+      const rows = [
+        ["Rule practice", answerBreakdown.practice],
+        ["Checkpoint 1 · Rules 1–10", answerBreakdown.checkpoint1],
+        ["Checkpoint 2 · Rules 11–20", answerBreakdown.checkpoint2],
+        ["Final grand test", answerBreakdown.final]
+      ];
+      rows.forEach(([label, result]) => {
+        const row = makeElement("div", "flex items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4");
+        row.append(makeElement("span", "text-sm text-slate-300", label), makeElement("span", "text-sm font-bold text-white", `${result.correct} / ${result.total}`));
+        breakdown.append(row);
+      });
+      const restart = makeElement("button", "mt-7 w-full rounded-xl bg-indigo-500 px-5 py-3.5 font-bold text-white transition hover:bg-indigo-400 sm:w-auto", "Start again");
+      restart.type = "button";
+      restart.addEventListener("click", renderHome);
+      card.append(icon, heading, summary, score, breakdown, makeElement("p", "mt-5 text-center text-xs text-slate-500", "This score is temporary and will reset when you restart or refresh the page."), restart);
+      appContent.replaceChildren(card);
+    }
+
+    function resetCourse() {
+      courseMode = "home";
+      ruleIndex = 0;
+      changingRuleIndex = 0;
+      questionIndex = 0;
+      stage = "home";
+      activeQuestions = [];
+      selectedIndex = null;
+      optionsRevealed = false;
+      correctTotal = 0;
+      answeredTotal = 0;
+      completedStages = new Set();
+      answerBreakdown = createAnswerBreakdown();
+      renderHome();
+    }
+
+    soundToggle.addEventListener("click", () => setSoundEnabled(!soundEnabled));
+    document.getElementById("restartButton").addEventListener("click", resetCourse);
+    renderHome();
+  </script>
+</body>
+</html>
